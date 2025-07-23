@@ -4,14 +4,14 @@
 
 **Ultimate Game Finder** — это универсальный пользовательский скрипт, который позволяет вам быстро находить информацию об играх, русификаторах и ценах, просто выделив название игры на любой веб-странице.
 
-<a href="[PLACEHOLDER]">
+<a href="https://greasyfork.org/ru/scripts/543449-ultimate-game-finder">
     <img src="https://img.shields.io/badge/Установить_с-GreasyFork-blue.svg" alt="Установить с Greasy Fork">
 </a>
 
 ---
 
 <div align="center">
-  <a href="[PLACEHOLDER]" title="Посмотреть полное описание функций">
+  <a href="https://0wn3dg0d.github.io/Ultimate-Game-Finder" title="Посмотреть полное описание функций">
     <img src="https://i.imgur.com/xHlfHv2.png" alt="Посмотреть полное описание" width="450">
   </a>
 </div>
