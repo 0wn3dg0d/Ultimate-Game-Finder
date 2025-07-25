@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ultimate Game Finder
 // @namespace    https://www.zoneofgames.ru/
-// @version      1.0
+// @version      1.1
 // @description  Ищет по выделенному тексту: информацию об игре в Steam, русификаторы на ZOG и цены в магазинах
 // @author       0wn3df1x
 // @license      MIT
@@ -54,7 +54,11 @@
 // @connect      rushbe.ru
 // @connect      igm.gg
 // @connect      sous-buy.ru
+// @connect      storage.yandexcloud.net
+// @connect      graph.digiseller.ru
+// @connect      steamcdn-a.akamaihd.net
 // @connect      cdn.jsdelivr.net
+// @connect      img.ggsel.ru
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
 // @grant        GM_registerMenuCommand
@@ -186,7 +190,7 @@
         .ugf-header-button:hover { background-color: #67c1f5; color: #1b2838; }
 
         .ugf-warning-message {
-            background-color: rgba(102, 192, 244, 0.2); /* ← ИСПРАВЛЕНА ПРОЗРАЧНОСТЬ */
+            background-color: rgba(102, 192, 244, 0.2);
             border: 1px solid #66c0f4;
             color: #66c0f4;
             padding: 10px 15px;
@@ -194,6 +198,80 @@
             border-radius: 4px;
             font-size: 14px;
             text-align: center;
+        }
+
+        .ugf-userdata-plaque {
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 3px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+            border-style: solid;
+            border-width: 1px;
+        }
+        .ugf-userdata-plaque.status-owned {
+            background-color: #A3CF06;
+            border-color: #bff207;
+            color: #111111;
+        }
+        .ugf-userdata-plaque.status-wishlist {
+            background-color: #203B4C;
+            border-color: #4384A0;
+            color: #FFFFFF;
+        }
+        .ugf-userdata-plaque.status-not-found {
+            background-color: #12151A;
+            border-color: #3A3F4B;
+            color: #8B949E;
+        }
+        .ugf-userdata-plaque.status-no-access {
+            background-color: #442020;
+            border-color: #8B5C5C;
+            color: #F0D8D8;
+            cursor: pointer;
+        }
+        .ugf-userdata-plaque.status-error {
+            background-color: rgba(217, 83, 79, 0.15);
+            border-color: #d9534f;
+            color: #f2dede;
+        }
+        #ugf-no-access-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #1f2c3a;
+            color: #c6d4df;
+            padding: 25px;
+            border-radius: 5px;
+            border: 1px solid #d9534f;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.7);
+            z-index: 1000000;
+            width: 450px;
+            max-width: 90vw;
+            font-family: "Motiva Sans", Sans-serif, Arial;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        #ugf-no-access-modal h4 {
+            margin-top: 0;
+            color: #d9534f;
+        }
+        #ugf-no-access-modal .ugf-no-access-close {
+            display: block;
+            margin: 20px auto 0 auto;
+            padding: 8px 20px;
+            background: var(--steam-light-blue, #66c0f4);
+            border: none;
+            color: var(--steam-dark-blue, #171a21);
+            cursor: pointer;
+            border-radius: 3px;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        #ugf-no-access-modal .ugf-no-access-close:hover {
+             background-color: #8ad3f7;
         }
     `);
 
@@ -571,6 +649,81 @@
         return secondaryGuides.filter(g => !mainUrls.has(g.url));
     }
 
+    async function fetchUserdata() {
+        return new Promise(resolve => {
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url: 'https://store.steampowered.com/dynamicstore/userdata/',
+                timeout: 7000,
+                onload: function(response) {
+                    try {
+                        const data = JSON.parse(response.responseText);
+                        resolve({
+                            wishlist: data.rgWishlist,
+                            owned: data.rgOwnedApps,
+                            success: true
+                        });
+                    } catch (e) {
+                        console.error("UGF: Ошибка парсинга Userdata:", e);
+                        resolve({ success: false, error: 'Ошибка парсинга ответа' });
+                    }
+                },
+                onerror: function(error) {
+                    console.error("UGF: Ошибка запроса Userdata:", error);
+                    resolve({ success: false, error: 'Сетевая ошибка' });
+                },
+                ontimeout: function() {
+                    console.error("UGF: Таймаут запроса Userdata");
+                    resolve({ success: false, error: 'Таймаут запроса' });
+                }
+            });
+        });
+    }
+
+    async function checkAndDisplayUserdataStatus(appId, containerSelector) {
+    const container = $(containerSelector);
+    if (!container.length) return;
+
+    const userdata = await fetchUserdata();
+    let plaque;
+
+    if (!userdata.success) {
+        plaque = $('<div class="ugf-userdata-plaque status-error">Ошибка при получении данных</div>');
+    }
+    else if (userdata.wishlist && userdata.wishlist.length === 0 && userdata.owned && userdata.owned.length === 0) {
+        plaque = $('<div class="ugf-userdata-plaque status-no-access">Нет данных</div>');
+        plaque.on('click', () => {
+             if (document.getElementById('ugf-no-access-modal')) return;
+             const noAccessModal = $(`
+                <div id="ugf-no-access-modal">
+                    <h4>Данные об играх не найдены</h4>
+                    <p>Скрипт не получил информацию о вашей библиотеке и списке желаемого. Это может означать одно из двух:</p>
+                    <ul style="margin-left: 20px; padding-left: 5px;">
+                        <li style="margin-bottom: 5px;">Вы не авторизованы в Steam в этом браузере.</li>
+                        <li>Ваш список желаемого и библиотека игр пусты.</li>
+                    </ul>
+                    <button class="ugf-button ugf-no-access-close">Закрыть</button>
+                </div>`);
+             $('body').append(noAccessModal);
+             noAccessModal.find('.ugf-no-access-close').on('click', () => noAccessModal.remove());
+        });
+    } else {
+        const numAppId = parseInt(appId, 10);
+        const isOwned = userdata.owned && userdata.owned.includes(numAppId);
+        const isInWishlist = userdata.wishlist && userdata.wishlist.includes(numAppId);
+
+        if (isOwned) {
+            plaque = $('<div class="ugf-userdata-plaque status-owned">В библиотеке</div>');
+        } else if (isInWishlist) {
+            plaque = $('<div class="ugf-userdata-plaque status-wishlist">В желаемом</div>');
+        } else {
+            plaque = $('<div class="ugf-userdata-plaque status-not-found">Игры нет на аккаунте</div>');
+        }
+    }
+
+    container.append(plaque);
+    }
+
     function createModal() {
         const modal = $(`
             <div id="ugf-modal">
@@ -785,6 +938,10 @@
         if (steamData && steamData.media && steamData.media.length > 0) {
             initLightboxGallery(steamData.media);
         }
+
+        if (selSteam && selSteam.appId) {
+            checkAndDisplayUserdataStatus(selSteam.appId, '.ugf-final-info-links');
+        }
     }
 
     function initLightboxGallery(mediaItems) {
@@ -854,6 +1011,36 @@
 
     GM_registerMenuCommand('Найти игру', main);
 
+
+    function loadImageAsBlob(imgElement, imageUrl) {
+        const errorPlaceholder = 'https://i.imgur.com/yF0hawg.jpeg';
+
+        if (!imageUrl || imageUrl === 'https://i.imgur.com/yF0hawg.jpeg') {
+            imgElement.src = errorPlaceholder;
+            return;
+        }
+
+        GM_xmlhttpRequest({
+            method: 'GET',
+            url: imageUrl,
+            responseType: 'blob',
+            timeout: 15000,
+            onload: function(response) {
+                if (response.status >= 200 && response.status < 400) {
+                    const blobUrl = URL.createObjectURL(response.response);
+                    imgElement.src = blobUrl;
+                } else {
+                    imgElement.src = errorPlaceholder;
+                }
+            },
+            onerror: function() {
+                imgElement.src = errorPlaceholder;
+            },
+            ontimeout: function() {
+                imgElement.src = errorPlaceholder;
+            }
+        });
+    }
 
     function displayPriceAggregator(gameName, selectedSteam = null) {
         if (document.getElementById('findMasterModal')) {
@@ -1463,8 +1650,19 @@
             const container = document.createElement('div');
             container.id = 'findMasterContainer';
 
-            const header = document.createElement('div');
-            header.id = 'findMasterHeader';
+            const header = document.createElement('div');
+            header.id = 'findMasterHeader';
+
+            const editQueryBtn = document.createElement('button');
+            editQueryBtn.id = 'fmEditQueryBtn';
+            editQueryBtn.className = 'findMasterBtn';
+            editQueryBtn.title = 'Изменить поисковый запрос';
+
+            editQueryBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-.708l-3-3zm.646 6.061L9.793 2.5 3.293 9H3.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.207l6.5-6.5zm-7.468 7.468A.5.5 0 0 1 6 13.5V13h-.5a.5.5 0 0 1-.5-.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.5-.5V10h-.5a.499.499 0 0 1-.175-.032l-.179.178a.5.5 0 0 0-.11.168l-2 5a.5.5 0 0 0 .65.65l5-2a.5.5 0 0 0 .168-.11l.178-.178z"></path></svg>`;
+
+            editQueryBtn.onclick = fm_showEditQueryModal;
+            editQueryBtn.style.padding = '0 12px';
+            header.appendChild(editQueryBtn);
 
             fm_searchBtn = document.createElement('button');
             fm_searchBtn.textContent = 'Обновить %';
@@ -1632,6 +1830,54 @@
             fm_modal._escHandler = handleEsc;
         }
 
+        function fm_showEditQueryModal() {
+            const modalId = 'fmEditQueryModal';
+            if (document.getElementById(modalId)) return;
+
+            const modal = document.createElement('div');
+            modal.id = modalId;
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background-color: rgba(0,0,0,0.7); z-index: 1000007;
+                display: flex; align-items: center; justify-content: center;
+            `;
+
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background-color: #1f2c3a; color: #c6d4df; padding: 25px;
+                border-radius: 5px; border: 1px solid #67c1f5;
+                width: 90%; max-width: 500px; text-align: left;
+            `;
+
+            content.innerHTML = `
+                <h4 style="margin-top:0; color:#67c1f5;">Изменить поисковый запрос</h4>
+                <p style="margin-bottom:15px; font-size: 14px;">Введите новое название для поиска и нажмите "Сохранить и обновить".</p>
+                <input type="text" id="fmEditQueryInput" value="" style="width: 100%; padding: 10px; font-size: 16px; background-color: #1a2635; border: 1px solid #3a4f6a; color: #c6d4df; border-radius: 3px; margin-bottom: 20px;">
+                <div style="text-align: right;">
+                    <button id="fmEditQuerySaveBtn" class="findMasterBtn">Сохранить и обновить</button>
+                </div>
+            `;
+
+            modal.appendChild(content);
+            document.body.appendChild(modal);
+
+            const input = document.getElementById('fmEditQueryInput');
+            input.value = fm_gameNameForSearch;
+            input.focus();
+
+            const saveAndClose = () => {
+                fm_gameNameForSearch = input.value.trim();
+                fm_triggerSearch();
+                modal.remove();
+            };
+
+            document.getElementById('fmEditQuerySaveBtn').onclick = saveAndClose;
+            input.onkeydown = (e) => { if (e.key === 'Enter') saveAndClose(); };
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
+        }
+
         function fm_exportExclusions() {
             const keywordsString = fm_exclusionKeywords.join(',');
             if (!keywordsString) {
@@ -1672,37 +1918,85 @@
                     <p>Вставьте список слов, разделенных запятыми:</p>
                     <textarea id="fmImportTextarea" rows="6"></textarea>
                     <div class="fmImportModalActions">
-                        <button id="fmImportAcceptBtn" class="findMasterBtn">Принять</button>
+                        <button id="fmImportAppendBtn" class="findMasterBtn">Добавить к списку</button>
+                        <button id="fmImportOverwriteBtn" class="findMasterBtn" style="background-color: #c9302c; border-color: #ac2925;">Перезаписать список</button>
                         <button id="fmImportCancelBtn" class="findMasterBtn">Отмена</button>
                     </div>
                 </div>
             `;
             document.body.appendChild(importModal);
 
-            document.getElementById('fmImportAcceptBtn').onclick = fm_handleImport;
+            const textarea = document.getElementById('fmImportTextarea');
+            textarea.focus();
+
+            const processImport = (isOverwrite) => {
+                const text = textarea.value.trim();
+                if (text) {
+                    const importedKeywords = text.split(',')
+                        .map(k => k.trim().toLowerCase())
+                        .filter(k => k.length > 0);
+
+                    if (isOverwrite) {
+                        fm_exclusionKeywords = [...new Set(importedKeywords)];
+                    } else {
+                        fm_exclusionKeywords = [...new Set([...fm_exclusionKeywords, ...importedKeywords])];
+                    }
+
+                    GM_setValue(FM_EXCLUSION_STORAGE_KEY, fm_exclusionKeywords);
+                    fm_renderExclusionTags();
+                    fm_applyFilters();
+                } else {
+                    alert("Поле ввода пустое. Импорт не выполнен.");
+                }
+                importModal.remove();
+            };
+
+            document.getElementById('fmImportAppendBtn').onclick = () => processImport(false);
+
+            document.getElementById('fmImportOverwriteBtn').onclick = () => {
+                fm_showOverwriteConfirmationModal(() => {
+                    processImport(true);
+                });
+            };
+
             document.getElementById('fmImportCancelBtn').onclick = () => importModal.remove();
-            document.getElementById('fmImportTextarea').focus();
         }
 
-        function fm_handleImport() {
-            const textarea = document.getElementById('fmImportTextarea');
-            const importModal = document.getElementById('fmImportModal');
-            if (!textarea || !importModal) return;
+        function fm_showOverwriteConfirmationModal(onConfirm) {
+            const modalId = 'fmOverwriteConfirmModal';
+            if (document.getElementById(modalId)) return;
 
-            const text = textarea.value.trim();
-            if (text) {
-                const importedKeywords = text.split(',')
-                    .map(k => k.trim().toLowerCase())
-                    .filter(k => k.length > 0);
-                fm_exclusionKeywords = [...new Set(importedKeywords)];
-                GM_setValue(FM_EXCLUSION_STORAGE_KEY, fm_exclusionKeywords);
-                fm_renderExclusionTags();
-                fm_applyFilters();
-                console.log('[FindMaster] Список исключений импортирован.');
-            } else {
-                alert("Поле ввода пустое. Импорт не выполнен.");
-            }
-            importModal.remove();
+            const modal = document.createElement('div');
+            modal.id = modalId;
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background-color: rgba(0,0,0,0.8); z-index: 1000008;
+                display: flex; align-items: center; justify-content: center;
+            `;
+
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background-color: #1f2c3a; color: #c6d4df; padding: 25px;
+                border-radius: 5px; border: 1px solid #d9534f;
+                width: 90%; max-width: 450px; text-align: center;
+            `;
+
+            content.innerHTML = `
+                <h4 style="margin-top:0; color:#d9534f;">Подтверждение</h4>
+                <p style="margin-bottom:20px; line-height:1.6; font-size: 15px;">Вы уверены, что хотите перезаписать список исключений? Все прошлые данные будут утеряны.</p>
+                <div style="display: flex; justify-content: center; gap: 15px;">
+                    <button id="fmOverwriteYes" class="findMasterBtn" style="background-color:#d9534f; border-color:#d43f3a; color:#fff;">Да, перезаписать</button>
+                    <button id="fmOverwriteNo" class="findMasterBtn">Отмена</button>
+                </div>
+            `;
+            modal.appendChild(content);
+            document.body.appendChild(modal);
+
+            document.getElementById('fmOverwriteYes').onclick = () => {
+                onConfirm();
+                modal.remove();
+            };
+            document.getElementById('fmOverwriteNo').onclick = () => modal.remove();
         }
 
         function fm_highlightErrorStores() {
@@ -2631,19 +2925,25 @@
                         const storeBaseUrl = new URL(item.storeUrl || fm_storeModules.find(s => s.id === item.storeId)?.baseUrl || window.location.origin);
                         imgSrc = new URL(imgSrc, storeBaseUrl.origin).href;
                     } catch (e) {
-                        imgSrc = 'https://via.placeholder.com/230x108?text=No+Image';
+                        imgSrc = 'https://i.imgur.com/yF0hawg.jpeg';
                     }
                 } else if (!imgSrc) {
-                    imgSrc = 'https://via.placeholder.com/230x108?text=No+Image';
+                    imgSrc = 'https://i.imgur.com/yF0hawg.jpeg';
                 }
+
                 img.src = imgSrc;
+                img.dataset.originalSrc = imgSrc;
+
+                img.onerror = function() {
+                    if (!this.dataset.blobTried) {
+                        this.dataset.blobTried = 'true';
+                        loadImageAsBlob(this, this.dataset.originalSrc);
+                    }
+                };
+
                 img.alt = item.productName || 'Изображение товара';
                 img.loading = 'lazy';
-                img.onerror = function() {
-                    this.onerror = null;
-                    this.src = 'https://via.placeholder.com/230x108?text=Load+Error';
-                    this.style.objectFit = 'contain';
-                };
+
                 imageWrapper.appendChild(img);
                 link.appendChild(imageWrapper);
                 const priceDiv = document.createElement('div');
