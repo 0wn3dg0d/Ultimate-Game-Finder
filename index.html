@@ -65,7 +65,7 @@
                 class="feature-img inline-block"
                 style="max-width: 100%; height: auto; border: 1px solid #3A3A3A; border-radius: 0.5rem;"
             >
-                <source src="https://rawcdn.githack.com/0wn3dg0d/Ultimate-Game-Finder/1a32dec40d514101d2a16ae537060db4bbdcf25d/ugf-demo.mp4" type="video/mp4">
+                <source src="https://rawcdn.githack.com/0wn3dg0d/Ultimate-Game-Finder/7ea6e27da38358c76e824108f1b94df8936457f0/ugf-demo.mp4" type="video/mp4">
                 Ваш браузер не поддерживает тег video.
             </video>
         </section>
@@ -83,10 +83,10 @@
                     <div class="bg-dx-bg-secondary border border-dx-border rounded-lg p-6">
                         <h3 class="text-2xl font-semibold text-dx-gold mb-4">Шаг 1: Поиск по названию</h3>
                         <p>Просто выделите название любой игры на любом сайте и щёлкните <strong>"Найти игру"</strong> в меню расширения Tampermonkey.</p>
-                        <div class="text-center mt-4"><img src="https://i.imgur.com/8etlDAk.png" alt="[Скриншот меню]" class="feature-img inline-block"></div><br>
+                        <div class="text-center mt-4"><img src="https://i.imgur.com/HXvFYZE.png" alt="[Скриншот меню]" class="feature-img inline-block"></div><br>
 						<p>Скрипт мгновенно проанализирует выделенный текст и найдёт возможные совпадения в базах данных <strong>Steam</strong> и <strong>Zone of Games</strong>.</p>
                         <p>Вам будет представлено удобное окно для выбора наиболее подходящего варианта из найденных.</p>
-                        <div class="text-center mt-4"><img src="https://i.imgur.com/Dn5DBm6.png" alt="[Скриншот окна выбора игры]" class="feature-img inline-block"></div><br>
+                        <div class="text-center mt-4"><img src="https://i.imgur.com/j9fLMoc.png" alt="[Скриншот окна выбора игры]" class="feature-img inline-block"></div><br>
 						<p><em>P.S. Доступ к агрегатору цен (Шаг 3) можно получить и без выбора</em></p>
                     </div>
 					
@@ -101,7 +101,7 @@
                             <li><strong>Русификаторы с Zone of Games:</strong> полный список доступных переводов со ссылками на них.</li>
                             <li><strong>Руководства с русификаторами из Steam:</strong> ссылки на руководства от сообщества.</li>
                         </ul>
-                        <div class="text-center mt-4"><img src="https://i.imgur.com/cEXHTPj.png" alt="[Скриншот окна с информацией об игре]" class="feature-img inline-block"></div>
+                        <div class="text-center mt-4"><img src="https://i.imgur.com/Dr1qiZ0.png" alt="[Скриншот окна с информацией об игре]" class="feature-img inline-block"></div>
                     </div>
                 </div>
             </section>
@@ -110,59 +110,79 @@
                 <details class="bg-dx-bg-secondary border border-dx-border rounded-lg overflow-hidden" open>
                     <summary class="p-4 text-xl font-medium text-dx-gold-light flex items-center">Шаг 3: Агрегатор цен (%)</summary>
                     <div class="p-6 border-t border-dx-border space-y-4 details-content">
-                        <p>Независимо от результатов поиска, вам всегда доступен мощный <strong>"Агрегатор цен"</strong>.<br><br>После щёлчка по кнопке <strong>Продолжить"</strong>, щёлкните по кнопке <strong>"Агрегатор"</strong>, чтобы найти лучшие предложения на желаемую игру.</p>
-                        <p><strong>Возможности окна агрегатора:</strong></p>
-                        <ul>
-                            <li>Отображение предложений из магазинов: Steam, SteamBuy, Playo, SteamPay, Gabestore, GamersBase, Igromagaz, GamesForFarm, Gamazavr, GameRay, KupiKod, KeysForGamers, Zaka-zaka, Buka, GGSEL, Plati.Market, Rushbe, IGM.gg, Sous-Buy.ru.</li>
-                            <li><strong>Редактирование поискового запроса:</strong> Если автоматический поиск оказался неточным, вы можете легко изменить название игры для повторного поиска прямо в окне агрегатора.</li>
-                            <li><strong>Гибкая настройка регионов Steam:</strong> Вы можете задать основной и несколько запасных регионов (например, Казахстан, СНГ и США). Если цена недоступна в основном регионе, скрипт автоматически проверит остальные по порядку. Настройка доступна при щелчке по значку ⚙️ рядом с магазином Steam в панели фильтров.</li>
-                            <li><strong>Учёт подписки IGM.gg:</strong> Если у вас есть активная подписка на IGM.gg, вы можете включить опцию для отображения цен с учётом подписной скидки. Это также настраивается через значок ⚙️ рядом с магазином IGM.gg.</li>
-                            <li><strong>Конвертация валют:</strong> Возможность переключения отображения всех цен между рублями (RUB) и долларами США (USD).</li>
-                            <li><strong>Сортировка:</strong> по цене, проценту скидки, сумме скидки и названию.</li>
-                            <li><strong>Фильтрация:</strong> по диапазону цен, скидке, наличию скидки, названию и магазинам.</li>
-                            <li><strong>Исключение по словам:</strong> Позволяет убрать из выдачи нежелательные товары (например, "аккаунт", "dlc", "xbox").</li>
-                            <li><strong>Сохранение настроек:</strong> Все ваши фильтры, сортировки и слова-исключения сохраняются для будущих поисков.</li>
-                            <li><strong>Экспорт и импорт списка исключений</strong> для удобного переноса.</li>
-                        </ul>
+                         <p>Независимо от результатов поиска, вам всегда доступен мощный <strong>"Агрегатор цен"</strong>.<br><br>После щелчка по кнопке <strong>"Продолжить"</strong>, щёлкните по кнопке <strong>"Агрегатор"</strong>, чтобы найти лучшие предложения на желаемую игру.</p>
+                         <img src="https://i.imgur.com/6Kvfa3d.png" alt="Пример Агрегатора 1" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;">
+                         <br><p><strong>Возможности окна агрегатора:</strong></p>
+                         <ul>
+                             <li>Отображение предложений из магазинов: Steam, SteamBuy, Playo, SteamPay, Gabestore, GamersBase, Igromagaz, GamesForFarm, Gamazavr, GameRay, KupiKod, KeysForGamers, Zaka-zaka, Buka, GGSEL, Plati.Market, Rushbe, IGM.gg, Sous-Buy.ru.</li>
+                             <li>Сохранение всех настроек фильтров, сортировки и списка исключений между сессиями.</li>
+                             <li>
+                                 <strong>Выбор издания для поиска:</strong> Кнопка редактирования запроса (✎) открывает окно, где можно выбрать конкретное издание или DLC для поиска. Это позволяет находить цены на определённую версию игры, отсекая лишнее. Вы также можете вручную скорректировать название, если считаете, что оно слишком длинное или содержит спецсимволы, мешающие поиску.
+                                 <ul>
+                                     <li style="margin-top: 5px;">При поиске без выбора конкретного издания в результаты будут добавлены все основные издания игры со страницы Steam (без DLC).</li>
+                                     <li style="margin-top: 5px;">При выборе конкретного издания или DLC оно будет добавлено в результаты для прямого сравнения цен.</li>
+                                 </ul>
+                                 <img src="https://i.imgur.com/bGv9vXX.png" alt="Окно выбора издания" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;">
+                                 <img src="https://i.imgur.com/X8yBBGe.png" alt="Пример поиска по конкретному изданию" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;"><br>
+                             </li>
+                             <li>
+                                 <strong>Гибкая фильтрация по названию:</strong> Помимо простого поиска, фильтр по названию поддерживает логические операторы <strong>{и}</strong>, <strong>{или}</strong>, <strong>{не}</strong> для создания сложных запросов.
+                                 <img src="https://i.imgur.com/MMdcw4Y.png" alt="Пример сложной фильтрации" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;"><br>
+                             </li>
+							 <li><strong>Гибкая настройка регионов Steam:</strong> Вы можете задать основной и несколько запасных регионов (например, Казахстан, СНГ и США). Если цена недоступна в основном регионе, скрипт автоматически проверит остальные по порядку. Настройка доступна при щелчке по значку ⚙️ рядом с магазином Steam в панели фильтров.</li>
+                             <li><strong>Учёт подписки IGM.gg:</strong> Если у вас есть активная подписка на IGM.gg, вы можете включить опцию для отображения цен с учётом подписной скидки. Это также настраивается через значок ⚙️ рядом с магазином IGM.gg.</li>
+                             <li><strong>Сортировка и фильтрация:</strong> Результаты можно сортировать по цене, проценту и сумме скидки, а также по названию. Доступны стандартные фильтры по диапазону цен, скидкам, их наличию и по конкретным магазинам.</li>
+                             <img src="https://i.imgur.com/QTsBYk5.png" alt="Панель фильтров" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;"><br>
+                             <li><strong>Исключение по ключевым словам:</strong> Создайте свой список слов-исключений (например, "vr", "валюта", "пополнение"), чтобы автоматически скрывать нерелевантные товары из результатов поиска.</li>
+                             <img src="https://i.imgur.com/sCel0o8.png" alt="Панель исключений" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;"><br>
+                             <li>
+                                 <strong>Импорт и экспорт исключений:</strong> Списком исключений можно легко поделиться. Функция импорта предлагает два режима: <strong>"Добавить к списку"</strong> (объединяет ваш текущий список с импортируемым) и <strong>"Перезаписать список"</strong> (полностью заменяет старый список новым).
+                                 <img src="https://i.imgur.com/RhIz6KT.png" alt="Окно импорта исключений" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;"><br>
+                             </li>
+                             <li><strong>Переключение валют:</strong> Позволяет просматривать все цены в рублях (RUB) или долларах США (USD) с автоматической конвертацией по актуальному курсу. Ваш выбор сохраняется для будущих сессий.</li>
+                             <img src="https://i.imgur.com/WGJvnji.png" alt="Пример отображения в USD" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;"><br>
+                             <li><strong>Режим сворачивания:</strong> Окно агрегатора и основное окно скрипта можно временно скрыть, нажав кнопку "—". Они свернутся в компактную кнопку в правом нижнем углу экрана, не сбрасывая результаты. Нажатие на кнопку восстановит окно в прежнем виде.</li>
+                             <img src="https://i.imgur.com/ihURRgl.png" alt="Кнопка для восстановления окна" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;"><br>
+                         </ul>
                          <details class="bg-dx-bg border-dx-border border rounded-md mt-4">
-                            <summary class="p-3 text-sm text-dx-text-dark font-medium">Список рекомендуемых исключений</summary>
-                            <div class="p-4 border-t border-dx-border">
-                                <p>Щёлкните по кнопке импорта (<strong>→</strong>) в панели исключений и вставьте в появившееся окно следующий текст:</p>
-                                <pre class="bg-black p-3 rounded-md text-xs text-dx-text whitespace-pre-wrap break-all mt-2">онлайн,оффлайн,аккаунт,ps4,xbox,digi361,ibloodrue,mangarded,siparisapp,multimarket,trustytop,cyber steam shop,boostgame,cloud-gaming.store,promarket88,offline,-seyter-,paul fox,sirdjinn,аренда,4ilgames,keks12,damhubmarket,nt-store,ps5,@mediasoft,dofamine game,hactier,alz0n,top-games,solo29,nerd shop,1gamestore,tobeclosertoyou,artbook,pack,havengames,soundtrack,seller-dealer,veryfastshop,namcogames,galaxylink,alex_lin,voronpb,infinity store,gamesstoregg,sallerok,ivi seller,pixel play,unlockonline,9paco,lifeda,kalinowskystore,gamershouse,thundergames,x4,jolly roger,f0cus,mando,big-kyl,ps3,ooh wee game,freshaccountsell,im6ot market,ghondik,kostet624,epic store,egs,brain777100,account,geeky_games,fungamesss,dimikeys</pre>
-                            </div>
-                        </details><br>
-                        <div class="text-center"><img src="https://i.imgur.com/3xIDf6r.png" alt="[Пример интерфейса агрегатора цен]" class="feature-img inline-block"></div><br>
-						<p class="mt-4">Используются различные методы для получения цен (API, парсинг HTML).</p>
+                             <summary class="p-3 text-sm text-dx-text-dark font-medium">Список рекомендуемых исключений</summary>
+                             <div class="p-4 border-t border-dx-border">
+                                 <p>Щёлкните по кнопке импорта (<strong>→</strong>) в панели исключений и вставьте в появившееся окно следующий текст:</p>
+                                 <pre class="bg-black p-3 rounded-md text-xs text-dx-text whitespace-pre-wrap break-all mt-2">онлайн,оффлайн,аккаунт,ps4,xbox,digi361,ibloodrue,mangarded,siparisapp,multimarket,trustytop,cyber steam shop,boostgame,cloud-gaming.store,promarket88,offline,-seyter-,paul fox,sirdjinn,аренда,4ilgames,keks12,damhubmarket,nt-store,ps5,@mediasoft,dofamine game,hactier,alz0n,top-games,solo29,nerd shop,1gamestore,tobeclosertoyou,artbook,pack,havengames,soundtrack,seller-dealer,veryfastshop,namcogames,galaxylink,alex_lin,voronpb,infinity store,gamesstoregg,sallerok,ivi seller,pixel play,unlockonline,9paco,lifeda,kalinowskystore,gamershouse,thundergames,x4,jolly roger,f0cus,mando,big-kyl,ps3,ooh wee game,freshaccountsell,im6ot market,ghondik,kostet624,epic store,egs,brain777100,account,geeky_games,fungamesss,dimikeys</pre>
+                             </div>
+                         </details><br>
+                         <p class="mt-4">Используются различные методы для получения цен (API, парсинг HTML).</p>
+                         <img src="https://i.imgur.com/KPS5Wfo.png" alt="Общий вид агрегатора" style="max-width: 100%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;">
                     </div>
                 </details>
             </section>
 
             <section id="customization">
-             <div class="bg-dx-bg-secondary border border-dx-border rounded-lg p-6 details-content">
-                <h3 class="text-2xl font-semibold text-dx-gold mb-4">Важное замечание о работе скрипта</h3>
-                <p>По умолчанию скрипт настроен на работу на <strong>любом сайте</strong> благодаря директиве:</p>
-                <pre class="bg-black p-3 rounded-md text-xs text-dx-text whitespace-pre-wrap break-all my-2">// @match        *://*/*</pre>
-                <p>Если вы хотите ограничить работу скрипта только определёнными сайтами, вам необходимо отредактировать эту строку в настройках Tampermonkey.</p>
-                <h4 class="text-lg font-semibold text-dx-gold-light mt-4">Как изменить список сайтов:</h4>
-                 <ol>
-                     <li>Откройте панель управления Tampermonkey и найдите скрипт "Ultimate Game Finder".</li>
-                     <li>Перейдите в редактор скрипта.</li>
-                     <li>Найдите строку, начинающуюся с `// @match`.</li>
-                     <li>Замените `*://*/*` на конкретные адреса сайтов. Вы можете добавить несколько строк `@match` для нескольких сайтов.</li>
-                 </ol>
-                 <p class="mt-2"><strong>Примеры:</strong></p>
-                 <ul>
-                     <li><strong>Только для YouTube и Twitch:</strong>
-<pre class="bg-black p-3 rounded-md text-xs text-dx-text whitespace-pre-wrap break-all my-2">// @match        *://www.youtube.com/*
-// @match        *://www.twitch.tv/*</pre>
-                     </li>
-                     <li><strong>Для всех поддоменов google.com:</strong>
-<pre class="bg-black p-3 rounded-md text-xs text-dx-text whitespace-pre-wrap break-all my-2">// @match        *://*.google.com/*</pre>
-                     </li>
-                 </ul>
-                 <p><strong>Примечание:</strong> Если вы хотите применять данный скрипт на страницах Steam, то рекомендуем использовать более мощный скрипт <a href="https://greasyfork.org/ru/scripts/526180-ultimate-steam-enhancer" class="text-dx-gold hover:text-dx-gold-light transition-colors" target="_blank">Ultimate Steam Enhancer</a>, так как он предоставляет гораздо больше функций, интегрированных непосредственно в его интерфейс.</p>
-             </div>
-        </section>
+               <div class="bg-dx-bg-secondary border border-dx-border rounded-lg p-6 details-content">
+                    <h3 class="text-2xl font-semibold text-dx-gold mb-4">Важное замечание о работе скрипта</h3>
+                    <p>По умолчанию скрипт настроен на работу на <strong>любом сайте</strong> благодаря директиве:</p>
+                    <pre class="bg-black p-3 rounded-md text-xs text-dx-text whitespace-pre-wrap break-all my-2">// @match         *://*/*</pre>
+                    <p>Если вы хотите ограничить работу скрипта только определёнными сайтами, вам необходимо отредактировать эту строку в настройках Tampermonkey.</p>
+                    <h4 class="text-lg font-semibold text-dx-gold-light mt-4">Как изменить список сайтов:</h4>
+                     <ol>
+                         <li>Откройте панель управления Tampermonkey и найдите скрипт "Ultimate Game Finder".</li>
+                         <li>Перейдите в редактор скрипта.</li>
+                         <li>Найдите строку, начинающуюся с `// @match`.</li>
+                         <li>Замените `*://*/*` на конкретные адреса сайтов. Вы можете добавить несколько строк `@match` для нескольких сайтов.</li>
+                     </ol>
+                     <p class="mt-2"><strong>Примеры:</strong></p>
+                     <ul>
+                         <li><strong>Только для YouTube и Twitch:</strong>
+<pre class="bg-black p-3 rounded-md text-xs text-dx-text whitespace-pre-wrap break-all my-2">// @match         *://*.youtube.com/*
+// @match         *://www.twitch.tv/*</pre>
+                         </li>
+                         <li><strong>Для всех поддоменов google.com:</strong>
+<pre class="bg-black p-3 rounded-md text-xs text-dx-text whitespace-pre-wrap break-all my-2">// @match         *://*.google.com/*</pre>
+                         </li>
+                     </ul>
+                     <p><strong>Примечание:</strong> Если вы хотите применять данный скрипт на страницах Steam, то рекомендуем использовать более мощный скрипт <a href="https://greasyfork.org/ru/scripts/526180-ultimate-steam-enhancer" class="text-dx-gold hover:text-dx-gold-light transition-colors" target="_blank">Ultimate Steam Enhancer</a>, так как он предоставляет гораздо больше функций, интегрированных непосредственно в его интерфейс.</p>
+               </div>
+            </section>
 
         </main>
 
