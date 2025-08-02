@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ultimate Game Finder
 // @namespace    https://www.zoneofgames.ru/
-// @version      1.1
+// @version      1.1.1
 // @description  Ищет по выделенному тексту: информацию об игре в Steam, русификаторы на ZOG и цены в магазинах
 // @author       0wn3df1x
 // @license      MIT
@@ -58,7 +58,7 @@
 // @connect      graph.digiseller.ru
 // @connect      steamcdn-a.akamaihd.net
 // @connect      cdn.jsdelivr.net
-// @connect      img.ggsel.ru
+// @connect      img.ggsel.
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
 // @grant        GM_registerMenuCommand
@@ -83,6 +83,23 @@
             --steam-light-blue: #66c0f4; --steam-grey: #c7d5e0;
         }
         #ugf-modal * { box-sizing: border-box; text-align: left; }
+
+        .ugf-minimize {
+            cursor: pointer; color: #fff; font-size: 24px; font-weight: bold;
+            line-height: 1; padding: 0 10px;
+        }
+        #ugf-restore-btn {
+            position: fixed; bottom: 20px; right: 20px; z-index: 1000008;
+            background-color: #1b2838; color: #c6d4df;
+            border: 1px solid #67c1f5; border-radius: 4px; padding: 10px 15px;
+            font-size: 14px; cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            display: flex; align-items: center; gap: 8px;
+            transition: all 0.2s;
+        }
+        #ugf-restore-btn:hover { background-color: #2a475e; color: #fff; }
+        #ugf-restore-btn span { font-size: 20px; line-height: 1; }
+
         .ugf-content {
             background-color: var(--steam-dark-blue); border: 1px solid #000;
             width: 90%; max-width: 1040px; max-height: 95vh; display: flex;
@@ -725,6 +742,8 @@
     }
 
     function createModal() {
+        let ugf_isMinimized = false;
+
         const modal = $(`
             <div id="ugf-modal">
                 <div class="ugf-content">
@@ -732,6 +751,7 @@
                         <h2>Поиск игры</h2>
                         <div class="ugf-header-controls">
                             <button class="ugf-button ugf-header-button" id="ugf-price-aggregator-btn" style="display: none;">Агрегатор</button>
+                            <span class="ugf-minimize">&mdash;</span>
                             <span class="ugf-close">&times;</span>
                         </div>
                     </div>
@@ -740,6 +760,20 @@
                     </div>
                 </div>
             </div>`);
+
+        const restoreBtn = $('<button id="ugf-restore-btn"><span>&#x25A3;</span> Развернуть Ultimate Game Finder</button>').hide();
+
+        function ugf_minimizeModal() {
+            modal.hide();
+            restoreBtn.show();
+            ugf_isMinimized = true;
+        }
+
+        function ugf_restoreModal() {
+            modal.show();
+            restoreBtn.hide();
+            ugf_isMinimized = false;
+        }
 
         const ugf_handleKeyDown = function(event) {
             if (event.key === 'Enter') {
@@ -750,16 +784,29 @@
                 }
             } else if (event.key === 'Escape') {
                 event.preventDefault();
-                modal.find('.ugf-close').click();
+                if ($('#ugf-lightbox').is(':visible')) {
+                     $('#ugf-lightbox .ugf-lightbox-close').click();
+                } else if ($('#findMasterModal').is(':visible')) {
+                     $('#findMasterCloseBtn').click();
+                } else if ($('#ugf-no-access-modal').length) {
+                     $('#ugf-no-access-modal .ugf-no-access-close').click();
+                }
+                else {
+                     modal.find('.ugf-close').click();
+                }
             }
         };
 
-        $('body').append(modal);
+        $('body').append(modal).append(restoreBtn);
+
+        modal.find('.ugf-minimize').on('click', ugf_minimizeModal);
+        restoreBtn.on('click', ugf_restoreModal);
 
         modal.find('.ugf-close').on('click', () => {
             $('#ugf-lightbox').remove();
             $(document).off('keydown.ugf-lightbox');
             $(document).off('keydown', ugf_handleKeyDown);
+            restoreBtn.remove();
             modal.remove();
         });
 
@@ -1084,12 +1131,16 @@
         let fm_exchangeRates = {};
 
         let fm_modal, fm_closeBtn, fm_searchBtn;
+        let fm_selectedSteamItem = null;
+        let fm_steamPageOffersCache = null;
+        let fm_steamPageDocumentCache = null;
         let fm_resultsContainer, fm_resultsDiv, fm_statusDiv;
         let fm_filtersPanel, fm_exclusionTagsDiv, fm_exclusionTagsListDiv, fm_excludeInput, fm_addExcludeBtn;
         let fm_sortButtonsContainer;
         let fm_filterStoreCheckboxesContainer;
         let fm_gameNameForSearch = '';
         let fm_selectedSteamData = null;
+        let fm_isMinimized = false;
 
         function fm_parsePrice(priceStr) {
             if (!priceStr) return null;
@@ -1103,6 +1154,109 @@
             const cleaned = String(percentStr).replace(/[^\d.]/g, '');
             const percent = parseFloat(cleaned);
             return isNaN(percent) ? null : percent;
+        }
+
+        async function fm_processPriceString(priceString) {
+            if (!priceString || typeof priceString !== 'string' || priceString.toLowerCase().includes('n/a') || priceString.toLowerCase().includes('free') || priceString.trim() === '') {
+                return null;
+            }
+            const price = fm_parsePrice(priceString);
+            if (price === null) {
+                return null;
+            }
+            let currencyCode = 'RUB';
+            let rate = 1;
+            const currencyMap = [
+                { symbols: ['$', 'USD'], code: 'USD' },
+                { symbols: ['€', 'EUR'], code: 'EUR' },
+                { symbols: ['£', 'GBP'], code: 'GBP' },
+                { symbols: ['₸'], code: 'KZT' },
+                { symbols: ['₴', 'UAH'], code: 'UAH' },
+                { symbols: ['¥', 'JPY', 'CNY'], code: 'CNY' }
+            ];
+            for (const currency of currencyMap) {
+                if (currency.symbols.some(symbol => priceString.includes(symbol))) {
+                    currencyCode = currency.code;
+                    break;
+                }
+            }
+            if (currencyCode !== 'RUB') {
+                try {
+                    const rates = await fm_fetchExchangeRates(currencyCode.toLowerCase());
+                    rate = rates?.rub;
+                    if (!rate) {
+                        fm_logError('CurrencyConverter', `Не найден курс для ${currencyCode} -> RUB`);
+                        return null;
+                    }
+                } catch (e) {
+                    fm_logError('CurrencyConverter', `Ошибка получения курса для ${currencyCode}`, e);
+                    return null;
+                }
+            }
+            return price * rate;
+        }
+
+        async function fm_scrapeSteamPageOffers(doc) {
+            doc = doc || document;
+            const offers = { editions: [], dlc: [] };
+            const processOffer = async (element, isDLC) => {
+                let title, priceText, originalPriceText, discountPercent = 0, id, type, subIdInput, bundleIdInput, appid;
+                if (isDLC) {
+                    appid = element.dataset.dsAppid;
+                    const dlcNameElement = element.querySelector('.game_area_dlc_name');
+                    if (dlcNameElement) {
+                        const clone = dlcNameElement.cloneNode(true);
+                        clone.querySelector('.dlc_highlight_reason_container')?.remove();
+                        title = clone.textContent.trim();
+                    }
+
+                    const priceContainer = element.querySelector('.game_area_dlc_price');
+                    if (!priceContainer) return null;
+                    const discountBlock = priceContainer.querySelector('.discount_block');
+                    if (discountBlock) {
+                        priceText = discountBlock.querySelector('.discount_final_price')?.textContent.trim();
+                        originalPriceText = discountBlock.querySelector('.discount_original_price')?.textContent.trim();
+                        discountPercent = fm_parsePercent(discountBlock.querySelector('.discount_pct')?.textContent);
+                    } else {
+                        priceText = priceContainer.textContent.trim();
+                    }
+                    id = appid;
+                    type = 'dlc';
+                } else {
+                    const gamePurchaseDiv = element.querySelector('.game_area_purchase_game, .game_area_purchase_game_dropdown_subscription');
+                    if (!gamePurchaseDiv) return null;
+
+                    const titleElement = gamePurchaseDiv.querySelector('h2.title');
+                    if (!titleElement) return null;
+
+                    const clonedTitleElement = titleElement.cloneNode(true);
+                    clonedTitleElement.querySelector('.bundle_label')?.remove();
+                    title = clonedTitleElement.textContent.trim().replace(/^(Купить|Buy)\s+/, '').replace(/\s*—\s*НАБОР.*/, '').trim();
+
+                    const discountBlock = gamePurchaseDiv.querySelector('.discount_block');
+                    const priceBlock = gamePurchaseDiv.querySelector('.game_purchase_price.price');
+                    if (discountBlock) {
+                        priceText = discountBlock.querySelector('.discount_final_price')?.textContent.trim();
+                        originalPriceText = discountBlock.querySelector('.discount_original_price')?.textContent.trim();
+                        discountPercent = fm_parsePercent(discountBlock.querySelector('.discount_pct')?.textContent);
+                    } else if (priceBlock) {
+                        priceText = priceBlock.textContent.trim();
+                    }
+                    subIdInput = gamePurchaseDiv.querySelector('input[name="subid"]');
+                    bundleIdInput = gamePurchaseDiv.querySelector('input[name="bundleid"]');
+                    id = subIdInput?.value || bundleIdInput?.value;
+                    type = subIdInput ? 'sub' : 'bundle';
+                }
+                if (!id || !title) return null;
+                const price = await fm_processPriceString(priceText);
+                const originalPrice = await fm_processPriceString(originalPriceText);
+                return { id, title, price, originalPrice, priceText, originalPriceText, discountPercent: discountPercent || 0, type };
+            };
+            const editionPromises = Array.from(doc.querySelectorAll('.game_area_purchase_game_wrapper')).map(wrapper => processOffer(wrapper, false));
+            const dlcPromises = Array.from(doc.querySelectorAll('#gameAreaDLCSection .game_area_dlc_row')).map(row => processOffer(row, true));
+            offers.editions = (await Promise.all(editionPromises)).filter(Boolean);
+            offers.dlc = (await Promise.all(dlcPromises)).filter(Boolean);
+            return offers;
         }
 
         async function fm_processItemCurrency(itemData, priceString) {
@@ -1176,9 +1330,9 @@
                 amount = 0;
             }
 
-            item.originalPrice = original !== null ? parseFloat(original.toFixed(2)) : null;
-            item.discountPercent = percent !== null ? parseFloat(percent.toFixed(1)) : null;
-            item.discountAmount = amount !== null ? parseFloat(amount.toFixed(2)) : null;
+            item.originalPrice = typeof original === 'number' ? parseFloat(original.toFixed(2)) : null;
+            item.discountPercent = typeof percent === 'number' ? parseFloat(percent.toFixed(1)) : null;
+            item.discountAmount = typeof amount === 'number' ? parseFloat(amount.toFixed(2)) : null;
 
             if (item.discountPercent !== null && item.discountPercent <= 0) {
                 item.discountPercent = 0;
@@ -1193,6 +1347,10 @@
                 item.discountAmount = 0;
             }
             return item;
+        }
+
+        function fm_logInfo(storeName, message) {
+            console.log(`[FindMaster][${storeName}] ${message}`);
         }
 
         function fm_logError(storeName, message, error = null) {
@@ -1243,6 +1401,104 @@
             });
         }
 
+        async function fm_getAnonymousSession() {
+            const sessionUrl = 'https://store.steampowered.com/join/?l=russian';
+            try {
+                const response = await new Promise((resolve, reject) => {
+                    GM_xmlhttpRequest({
+                        method: "GET",
+                        url: sessionUrl,
+                        anonymous: true,
+                        headers: {
+                            'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7'
+                        },
+                        timeout: FM_REQUEST_TIMEOUT_MS,
+                        onload: resolve,
+                        onerror: reject,
+                        ontimeout: reject
+                    });
+                });
+
+                const headers = response.responseHeaders;
+                const sessionidMatch = headers.match(/sessionid=([^;]+)/);
+                const browseridMatch = headers.match(/browserid=([^;]+)/);
+
+                const sessionid = sessionidMatch ? sessionidMatch[1] : null;
+                const browserid = browseridMatch ? browseridMatch[1] : null;
+
+                if (sessionid && browserid) {
+                    return { sessionid, browserid };
+                }
+                throw new Error('Не удалось получить sessionid/browserid из заголовков.');
+
+            } catch (error) {
+                fm_logError('SteamSession', 'Не удалось получить анонимную сессию', error);
+                throw error;
+            }
+        }
+
+        async function fm_fetchSteamPageWithBypass(appId, regionCode, sessionCookies) {
+            const storeModule = fm_storeModules.find(s => s.id === 'steam');
+            const url = `${storeModule.baseUrl}/app/${appId}/?cc=${regionCode.toLowerCase()}&l=ru`;
+
+            try {
+                const initialResponse = await new Promise((resolve, reject) => {
+                    GM_xmlhttpRequest({
+                        method: 'GET',
+                        url: url,
+                        headers: {
+                            'Cookie': `sessionid=${sessionCookies.sessionid}; browserid=${sessionCookies.browserid}; steamCountry=${encodeURIComponent(regionCode.toUpperCase())};`
+                        },
+                        anonymous: true,
+                        timeout: FM_REQUEST_TIMEOUT_MS,
+                        onload: resolve,
+                        onerror: reject,
+                        ontimeout: reject
+                    });
+                });
+
+                let html = initialResponse.responseText;
+
+                const isRegionBlocked = html.includes('id="error_box"') || html.includes('is not available in your country');
+                if (isRegionBlocked) {
+                    fm_logInfo('Steam', `Страница для региона ${regionCode} недоступна (обнаружен региональный блок).`);
+                    return null;
+                }
+
+                const hasAgeGate = html.includes('agegate_birthday_selector');
+                if (hasAgeGate) {
+                    fm_logInfo('Steam', `Регион ${regionCode} доступен. Проходим возрастное ограничение...`);
+
+                    const finalResponse = await new Promise((resolve, reject) => {
+                        GM_xmlhttpRequest({
+                            method: 'GET',
+                            url: url,
+                            headers: {
+                                'Cookie': `sessionid=${sessionCookies.sessionid}; browserid=${sessionCookies.browserid}; steamCountry=${encodeURIComponent(regionCode.toUpperCase())}; wants_mature_content=1; birthtime=631152001;`
+                            },
+                            anonymous: true,
+                            timeout: FM_REQUEST_TIMEOUT_MS,
+                            onload: resolve,
+                            onerror: reject,
+                            ontimeout: reject
+                        });
+                    });
+
+                    if (finalResponse.responseText.includes('agegate_birthday_selector')) {
+                        fm_logError(storeModule.name, `Не удалось обойти возрастное ограничение для региона ${regionCode}.`);
+                        return null;
+                    }
+                    html = finalResponse.responseText;
+                }
+
+                return html;
+
+            } catch (error) {
+                fm_logError(storeModule.name, `Критическая ошибка запроса для региона ${regionCode}`, error);
+                return null;
+            }
+        }
+
         function fm_addStyles() {
             GM_addStyle(`
                 #findMasterModal {
@@ -1252,18 +1508,45 @@
                     font-family: "Motiva Sans", Sans-serif, Arial;
                 }
                 #findMasterModal * { box-sizing: border-box; }
+
+                #findMasterMinimizeBtn {
+                    position: fixed; top: 15px; right: 65px;
+                    font-size: 24px; font-weight: bold; color: #aaa;
+                    background: none; border: none; cursor: pointer;
+                    line-height: 1; z-index: 1000002; padding: 5px;
+                    transition: color 0.2s, transform 0.2s;
+                }
+                #findMasterMinimizeBtn:hover {
+                    color: #fff; transform: scale(1.1);
+                }
+                #findMasterRestoreBtn {
+                    position: fixed; bottom: 20px; right: 20px; z-index: 1000008;
+                    background-color: #1b2838; color: #c6d4df;
+                    border: 1px solid #67c1f5; border-radius: 4px; padding: 10px 15px;
+                    font-size: 14px; cursor: pointer;
+                    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+                    display: flex; align-items: center; gap: 8px;
+                    transition: all 0.2s;
+                }
+                #findMasterRestoreBtn:hover {
+                    background-color: #2a475e; color: #fff;
+                }
+                #findMasterRestoreBtn span {
+                    font-size: 20px; line-height: 1;
+                }
+
                 #findMasterContainer {
                     padding-top: 0; height: 100%; display: flex; flex-direction: column;
                 }
                 #findMasterCloseBtn {
-                    position: fixed; top: 15px; right: 20px; font-size: 35px;
+                    position: fixed; top: 10px; right: 20px; font-size: 35px;
                     color: #aaa; background: none; border: none; cursor: pointer;
                     line-height: 1; z-index: 10002; padding: 5px;
                     transition: color 0.2s, transform 0.2s;
                 }
                 #findMasterCloseBtn:hover { color: #fff; transform: scale(1.1); }
                 #findMasterHeader {
-                    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+                    display: flex; align-items: center; gap: 10px; flex-wrap: nowrap;
                     position: relative; z-index: 1001; background-color: rgba(27, 40, 56, 0.95);
                     backdrop-filter: blur(5px); padding: 10px 15px;
                     border-bottom: 1px solid #3a4f6a; border-radius: 0;
@@ -1278,6 +1561,71 @@
                     min-height: 36px; flex-shrink: 0;
                 }
                 #findMasterHeaderStatus .spinner { margin-left: 8px; }
+
+                .fm-edit-query-content { background-color: #1f2c3a; color: #c6d4df; padding: 25px; border-radius: 5px; border: 1px solid #67c1f5; width: 90%; max-width: 900px; text-align: left; display: flex; flex-direction: column; max-height: 90vh; }
+                .fm-edit-columns { display: flex; gap: 20px; margin-bottom: 20px; overflow: hidden; flex-grow: 1; }
+                .fm-edit-column { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+                .fm-edit-column-header { margin-bottom: 10px; }
+                .fm-edit-controls { display: flex; gap: 10px; align-items: center; }
+                .fm-edit-filter-input { flex-grow: 1; padding: 5px 8px; background-color: #1a2635; border: 1px solid #3a4f6a; color: #c6d4df; border-radius: 3px; font-size: 13px; }
+                .fm-edit-filter-input:focus { outline: none; border-color: #67c1f5; }
+                .fm-edit-sort-buttons { display: flex; gap: 5px; }
+                .fm-edit-sort-btn { padding: 4px 8px; font-size: 12px; background-color: #2a3f5a; border: 1px solid #3a4f6a; color: #c6d4df; cursor: pointer; border-radius: 3px; transition: all 0.2s; min-width: 30px; }
+                .fm-edit-sort-btn:hover { background-color: #3a4f6a; border-color: #67c1f5; }
+                .fm-edit-sort-btn.active { background-color: #4b6f9c; border-color: #67c1f5; color: #fff; }
+                .fm-edit-sort-btn.active::after { content: ''; display: inline-block; width: 0; height: 0; margin-left: 5px; vertical-align: middle; border-left: 4px solid transparent; border-right: 4px solid transparent; }
+                .fm-edit-sort-btn.active.asc::after { border-bottom: 4px solid #fff; }
+                .fm-edit-sort-btn.active.desc::after { border-top: 4px solid #fff; }
+                .fm-edit-list { list-style: none; padding: 5px; margin: 0; overflow-y: auto; background-color: #1a2635; border: 1px solid #3a4f6a; border-radius: 3px; flex-grow: 1; height: 400px; scrollbar-width: thin; scrollbar-color: #4b6f9c #1a2635;}
+                .fm-edit-list::-webkit-scrollbar { width: 8px; }
+                .fm-edit-list::-webkit-scrollbar-track { background: #1a2635; border-radius: 4px; }
+                .fm-edit-list::-webkit-scrollbar-thumb { background-color: #4b6f9c; border-radius: 4px; border: 2px solid #1a2635; }
+                .fm-edit-list::-webkit-scrollbar-thumb:hover { background-color: #67c1f5; }
+                .fm-edit-list li { padding: 8px 10px; cursor: pointer; border-radius: 3px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; gap: 15px; transition: background-color 0.2s; }
+                .fm-edit-list li:hover { background-color: #2a3f5a; }
+                .fm-edit-list li.selected { background-color: #4b6f9c; color: #fff; font-weight: bold; }
+                .fm-edit-title-text { white-space: normal; word-break: break-word; flex-grow: 1; }
+                .fm-edit-price { color: #a4d007; font-weight: normal; margin-left: 15px; flex-shrink: 0; }
+
+                .fm-filter-help-btn {
+                    padding: 0;
+                    width: 36px;
+                    font-weight: bold;
+                    font-size: 16px;
+                    margin-left: -5px;
+                }
+                #fmFilterHelpModal {
+                    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                    background-color: rgba(0,0,0,0.8); z-index: 1000007; display: flex;
+                    align-items: center; justify-content: center;
+                }
+                .fm-help-modal-content {
+                    background-color:#1f2c3a;
+                    color:#c6d4df;
+                    padding:25px;
+                    border-radius:5px;
+                    border:1px solid #67c1f5;
+                    width:90%;
+                    max-width:600px;
+                    text-align:left;
+                    position: relative;
+                }
+                .fm-help-close-btn {
+                    position: absolute;
+                    top: 5px;
+                    right: 10px;
+                    font-size: 28px;
+                    color: #aaa;
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    line-height: 1;
+                    padding: 5px;
+                }
+                .fm-help-close-btn:hover {
+                    color: #fff;
+                }
+
                 #fmTitleFilterInput {
                     width: 250px; height: 36px; padding: 6px 12px; font-size: 14px;
                     background-color: rgba(10, 10, 15, 0.7); border: 1px solid #3a4f6a;
@@ -1451,22 +1799,22 @@
                     background-color: rgba(50, 55, 61, 0.9); border-color: #67c1f5;
                 }
 
-        .findMasterItem.steam-page-offer {
-            background-color: #202c24;
-            border: 1px solid #354f3a;
-        }
-        .findMasterItem.steam-page-offer:hover {
-            background-color: #304035;
-            border-color: #4a784d;
-        }
-        .findMasterItem.steam-page-offer .fm-buyButton {
-            background-color: #5c9d4f;
-            color: #1a2f1f;
-        }
-        .findMasterItem.steam-page-offer .fm-buyButton:hover {
-            background-color: #6ebf5f;
-            color: #0f1a0f;
-        }
+                .findMasterItem.steam-page-offer {
+                    background-color: #202c24;
+                    border: 1px solid #354f3a;
+                }
+                .findMasterItem.steam-page-offer:hover {
+                    background-color: #304035;
+                    border-color: #4a784d;
+                }
+                .findMasterItem.steam-page-offer .fm-buyButton {
+                    background-color: #5c9d4f;
+                    color: #1a2f1f;
+                }
+                .findMasterItem.steam-page-offer .fm-buyButton:hover {
+                    background-color: #6ebf5f;
+                    color: #0f1a0f;
+                }
 
                 .findMasterItem a { text-decoration: none; color: inherit; display: flex; flex-direction: column; height: 100%; }
                 .fm-card-image-wrapper {
@@ -1650,19 +1998,19 @@
             const container = document.createElement('div');
             container.id = 'findMasterContainer';
 
-            const header = document.createElement('div');
-            header.id = 'findMasterHeader';
+            const header = document.createElement('div');
+            header.id = 'findMasterHeader';
 
-            const editQueryBtn = document.createElement('button');
-            editQueryBtn.id = 'fmEditQueryBtn';
-            editQueryBtn.className = 'findMasterBtn';
-            editQueryBtn.title = 'Изменить поисковый запрос';
+            const editQueryBtn = document.createElement('button');
+            editQueryBtn.id = 'fmEditQueryBtn';
+            editQueryBtn.className = 'findMasterBtn';
+            editQueryBtn.title = 'Изменить поисковый запрос';
 
-            editQueryBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-.708l-3-3zm.646 6.061L9.793 2.5 3.293 9H3.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.207l6.5-6.5zm-7.468 7.468A.5.5 0 0 1 6 13.5V13h-.5a.5.5 0 0 1-.5-.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.5-.5V10h-.5a.499.499 0 0 1-.175-.032l-.179.178a.5.5 0 0 0-.11.168l-2 5a.5.5 0 0 0 .65.65l5-2a.5.5 0 0 0 .168-.11l.178-.178z"></path></svg>`;
+            editQueryBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-.708l-3-3zm.646 6.061L9.793 2.5 3.293 9H3.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.207l6.5-6.5zm-7.468 7.468A.5.5 0 0 1 6 13.5V13h-.5a.5.5 0 0 1-.5-.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.5-.5V10h-.5a.499.499 0 0 1-.175-.032l-.179.178a.5.5 0 0 0-.11.168l-2 5a.5.5 0 0 0 .65.65l5-2a.5.5 0 0 0 .168-.11l.178-.178z"></path></svg>`;
 
-            editQueryBtn.onclick = fm_showEditQueryModal;
-            editQueryBtn.style.padding = '0 12px';
-            header.appendChild(editQueryBtn);
+            editQueryBtn.onclick = fm_showEditQueryModal;
+            editQueryBtn.style.padding = '0 12px';
+            header.appendChild(editQueryBtn);
 
             fm_searchBtn = document.createElement('button');
             fm_searchBtn.textContent = 'Обновить %';
@@ -1703,9 +2051,16 @@
             const titleFilterInput = document.createElement('input');
             titleFilterInput.type = 'text';
             titleFilterInput.id = 'fmTitleFilterInput';
-            titleFilterInput.placeholder = 'Фильтр по названию (слова через ;)';
+            titleFilterInput.placeholder = 'Фильтр по названию...';
             titleFilterInput.addEventListener('input', fm_debounce(fm_applyFilters, FM_FILTER_DEBOUNCE_MS));
             rightControls.appendChild(titleFilterInput);
+
+            const helpBtn = document.createElement('button');
+            helpBtn.className = 'findMasterBtn fm-filter-help-btn';
+            helpBtn.textContent = '?';
+            helpBtn.title = 'Справка по фильтру';
+            helpBtn.onclick = fm_showFilterHelpModal;
+            rightControls.appendChild(helpBtn);
 
             const currencyToggleBtn = document.createElement('button');
             currencyToggleBtn.id = 'fmCurrencyToggleBtn';
@@ -1803,8 +2158,22 @@
             fm_closeBtn.innerHTML = '&times;';
             fm_closeBtn.onclick = fm_hideModal;
             fm_modal.appendChild(fm_closeBtn);
+
+            const fm_minimizeBtn = document.createElement('button');
+            fm_minimizeBtn.id = 'findMasterMinimizeBtn';
+            fm_minimizeBtn.innerHTML = '—';
+            fm_minimizeBtn.onclick = fm_minimizeModal;
+            fm_modal.appendChild(fm_minimizeBtn);
+
             fm_modal.appendChild(container);
             document.body.appendChild(fm_modal);
+
+            const restoreBtn = document.createElement('button');
+            restoreBtn.id = 'findMasterRestoreBtn';
+            restoreBtn.innerHTML = '<span>&#x25A3;</span> Развернуть Агрегатор';
+            restoreBtn.onclick = fm_restoreModal;
+            restoreBtn.style.display = 'none';
+            document.body.appendChild(restoreBtn);
 
             document.getElementById('fmSelectAllStores')?.addEventListener('click', fm_selectAllStores);
             document.getElementById('fmDeselectAllStores')?.addEventListener('click', fm_deselectAllStores);
@@ -1830,35 +2199,205 @@
             fm_modal._escHandler = handleEsc;
         }
 
-        function fm_showEditQueryModal() {
+        async function fm_showEditQueryModal() {
             const modalId = 'fmEditQueryModal';
             if (document.getElementById(modalId)) return;
+
+            const handleEsc = (event) => {
+                if (event.key === 'Escape') {
+                    event.stopPropagation();
+                    const modalToRemove = document.getElementById(modalId);
+                    if (modalToRemove) {
+                        modalToRemove.remove();
+                    }
+                    document.removeEventListener('keydown', handleEsc, true);
+                }
+            };
+            document.addEventListener('keydown', handleEsc, true);
+
+            const removeListeners = () => {
+                document.removeEventListener('keydown', handleEsc, true);
+            };
+
+            if (!fm_steamPageOffersCache) {
+                const simpleModal = document.createElement('div');
+                simpleModal.id = modalId;
+                simpleModal.style.cssText = `
+                    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                    background-color: rgba(0,0,0,0.7); z-index: 1000007;
+                    display: flex; align-items: center; justify-content: center;
+                `;
+                const simpleContent = document.createElement('div');
+                simpleContent.style.cssText = `
+                    background-color: #1f2c3a; color: #c6d4df; padding: 25px;
+                    border-radius: 5px; border: 1px solid #67c1f5;
+                    width: 90%; max-width: 500px; text-align: left;
+                `;
+                let message = (!fm_selectedSteamData || !fm_selectedSteamData.appId)
+                    ? 'Не удалось определить игру Steam. Вы можете ввести запрос вручную.'
+                    : 'Не удалось загрузить издания со страницы Steam (возможно, игра недоступна в выбранных регионах). Вы можете ввести запрос вручную.';
+
+                simpleContent.innerHTML = `
+                    <h4 style="margin-top:0; color:#67c1f5;">Изменить поисковый запрос</h4>
+                    <p style="margin-bottom:15px; font-size: 14px;">${message}</p>
+                    <input type="text" id="fmEditQueryInput" value="" style="width: 100%; padding: 10px; font-size: 16px; background-color: #1a2635; border: 1px solid #3a4f6a; color: #c6d4df; border-radius: 3px; margin-bottom: 20px;">
+                    <div style="text-align: right;">
+                        <button id="fmEditQuerySaveBtn" class="findMasterBtn">Сохранить и обновить</button>
+                    </div>
+                `;
+                simpleModal.appendChild(simpleContent);
+                document.body.appendChild(simpleModal);
+
+                const input = document.getElementById('fmEditQueryInput');
+                input.value = fm_gameNameForSearch;
+                input.focus();
+                const saveAndClose = () => {
+                    fm_gameNameForSearch = input.value.trim();
+                    fm_selectedSteamItem = null;
+                    fm_triggerSearch();
+                    removeListeners();
+                    simpleModal.remove();
+                };
+                document.getElementById('fmEditQuerySaveBtn').onclick = saveAndClose;
+                input.onkeydown = (e) => { if (e.key === 'Enter') saveAndClose(); };
+                simpleModal.addEventListener('click', (e) => {
+                    if (e.target === simpleModal) {
+                        removeListeners();
+                        simpleModal.remove();
+                    }
+                });
+                return;
+            }
 
             const modal = document.createElement('div');
             modal.id = modalId;
             modal.style.cssText = `
                 position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-                background-color: rgba(0,0,0,0.7); z-index: 1000007;
+                background-color: rgba(0,0,0,0.8); z-index: 1000007;
                 display: flex; align-items: center; justify-content: center;
+                font-family: "Motiva Sans", Sans-serif, Arial;
             `;
 
-            const content = document.createElement('div');
-            content.style.cssText = `
-                background-color: #1f2c3a; color: #c6d4df; padding: 25px;
-                border-radius: 5px; border: 1px solid #67c1f5;
-                width: 90%; max-width: 500px; text-align: left;
-            `;
+            const allOffers = {
+                editions: fm_steamPageOffersCache.editions.map((item, index) => ({...item, defaultOrder: index})),
+                dlc: fm_steamPageOffersCache.dlc.map((item, index) => ({...item, defaultOrder: index}))
+            };
 
-            content.innerHTML = `
-                <h4 style="margin-top:0; color:#67c1f5;">Изменить поисковый запрос</h4>
-                <p style="margin-bottom:15px; font-size: 14px;">Введите новое название для поиска и нажмите "Сохранить и обновить".</p>
-                <input type="text" id="fmEditQueryInput" value="" style="width: 100%; padding: 10px; font-size: 16px; background-color: #1a2635; border: 1px solid #3a4f6a; color: #c6d4df; border-radius: 3px; margin-bottom: 20px;">
-                <div style="text-align: right;">
-                    <button id="fmEditQuerySaveBtn" class="findMasterBtn">Сохранить и обновить</button>
-                </div>
-            `;
+            let sortState = { editions: { field: 'default', direction: 'asc' }, dlc: { field: 'default', direction: 'asc' } };
+            let filterState = { editions: '', dlc: '' };
 
-            modal.appendChild(content);
+            const createListHTML = (items) => {
+                if (items.length === 0) return '<li>Нет данных</li>';
+                const isUsdMode = fm_currentCurrencyMode === 'USD';
+                const rubToUsdRate = fm_exchangeRates['rub']?.usd || null;
+                return items.map(item => {
+                    let displayPrice = 'N/A';
+                    if (item.currentPrice !== null) {
+                        if (isUsdMode && rubToUsdRate) {
+                            const usdPrice = item.currentPrice * rubToUsdRate;
+                            displayPrice = `$${usdPrice.toFixed(2)}`;
+                        } else {
+                            displayPrice = `${Math.round(item.currentPrice).toLocaleString('ru-RU')} ₽`;
+                        }
+                    }
+                    return `<li data-name="${item.productName}" title="${item.productName}">
+                        <span class="fm-edit-title-text">${item.productName}</span>
+                        <span class="fm-edit-price">${displayPrice}</span>
+                    </li>`;
+                }).join('');
+            };
+
+            const sortList = (list, state) => {
+                const { field, direction } = state;
+                const dir = direction === 'asc' ? 1 : -1;
+                list.sort((a, b) => {
+                    if (field === 'default') return (a.defaultOrder - b.defaultOrder) * dir;
+                    if (field === 'name') return a.productName.localeCompare(b.productName) * dir;
+                    if (field === 'price') {
+                        if (a.currentPrice === null && b.currentPrice === null) return 0;
+                        if (a.currentPrice === null) return 1;
+                        if (b.currentPrice === null) return -1;
+                        return (a.currentPrice - b.currentPrice) * dir;
+                    }
+                    return 0;
+                });
+            };
+
+            const updateSortButtonsUI = () => {
+                modal.querySelectorAll('.fm-edit-sort-btn').forEach(btn => {
+                    const type = btn.dataset.type;
+                    const field = btn.dataset.field;
+                    const state = sortState[type];
+                    btn.classList.remove('active', 'asc', 'desc');
+                    if (state.field === field) {
+                        btn.classList.add('active', state.direction);
+                    }
+                });
+            };
+
+            const renderLists = () => {
+                const editionsList = document.getElementById('fm-edit-editions-list');
+                const dlcList = document.getElementById('fm-edit-dlc-list');
+                const filteredEditions = allOffers.editions.filter(item => item.productName.toLowerCase().includes(filterState.editions.toLowerCase()));
+                const filteredDLCs = allOffers.dlc.filter(item => item.productName.toLowerCase().includes(filterState.dlc.toLowerCase()));
+                sortList(filteredEditions, sortState.editions);
+                sortList(filteredDLCs, sortState.dlc);
+                editionsList.innerHTML = createListHTML(filteredEditions);
+                dlcList.innerHTML = createListHTML(filteredDLCs);
+                updateSortButtonsUI();
+                attachItemClickListeners();
+            };
+            const debouncedRender = fm_debounce(renderLists, 250);
+
+            const handleSortClick = (type, field) => {
+                const state = sortState[type];
+                const defaultDirections = { name: 'asc', price: 'asc', default: 'asc' };
+                if (state.field === field) {
+                    state.direction = state.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    state.field = field;
+                    state.direction = defaultDirections[field];
+                }
+                renderLists();
+            };
+
+            const attachItemClickListeners = () => {
+                modal.querySelectorAll('.fm-edit-list li').forEach(li => {
+                    li.addEventListener('click', () => {
+                        modal.querySelectorAll('li.selected').forEach(sel => sel.classList.remove('selected'));
+                        li.classList.add('selected');
+                        document.getElementById('fmEditQueryInput').value = li.dataset.name;
+                    });
+                });
+            };
+
+            modal.innerHTML = `
+                <div class="fm-edit-query-content">
+                    <h4 style="margin-top:0; color:#67c1f5;">Изменить поисковый запрос</h4>
+                    <p style="margin-bottom:15px; font-size: 14px;">Выберите издание/DLC или скорректируйте название вручную.</p>
+                    <div class="fm-edit-columns">
+                        <div class="fm-edit-column">
+                            <div class="fm-edit-column-header"><div class="fm-edit-controls">
+                                <input type="text" id="fm-edit-editions-filter" class="fm-edit-filter-input" placeholder="Поиск в изданиях...">
+                                <div class="fm-edit-sort-buttons">
+                                    <button class="fm-edit-sort-btn" data-type="editions" data-field="default" title="Сортировка по умолчанию">#</button>
+                                    <button class="fm-edit-sort-btn" data-type="editions" data-field="name" title="Сортировка по названию">А-Я</button>
+                                    <button class="fm-edit-sort-btn" data-type="editions" data-field="price" title="Сортировка по цене">${fm_getCurrencySymbol()}</button>
+                                </div>
+                            </div></div><ul id="fm-edit-editions-list" class="fm-edit-list"></ul></div>
+                        <div class="fm-edit-column">
+                            <div class="fm-edit-column-header"><div class="fm-edit-controls">
+                                <input type="text" id="fm-edit-dlc-filter" class="fm-edit-filter-input" placeholder="Поиск в DLC...">
+                                <div class="fm-edit-sort-buttons">
+                                    <button class="fm-edit-sort-btn" data-type="dlc" data-field="default" title="Сортировка по умолчанию">#</button>
+                                    <button class="fm-edit-sort-btn" data-type="dlc" data-field="name" title="Сортировка по названию">А-Я</button>
+                                    <button class="fm-edit-sort-btn" data-type="dlc" data-field="price" title="Сортировка по цене">${fm_getCurrencySymbol()}</button>
+                                </div>
+                            </div></div><ul id="fm-edit-dlc-list" class="fm-edit-list"></ul></div>
+                    </div>
+                    <input type="text" id="fmEditQueryInput" value="" style="width: 100%; padding: 10px; font-size: 16px; background-color: #1a2635; border: 1px solid #3a4f6a; color: #c6d4df; border-radius: 3px; margin-bottom: 20px;">
+                    <div style="text-align: right;"><button id="fmEditQuerySaveBtn" class="findMasterBtn">Искать по выбранному</button></div>
+                </div>`;
             document.body.appendChild(modal);
 
             const input = document.getElementById('fmEditQueryInput');
@@ -1867,15 +2406,37 @@
 
             const saveAndClose = () => {
                 fm_gameNameForSearch = input.value.trim();
+                const selectedLi = modal.querySelector('li.selected');
+                fm_selectedSteamItem = null;
+                if (selectedLi) {
+                    const selectedName = selectedLi.dataset.name;
+                    const allItems = [...allOffers.editions, ...allOffers.dlc];
+                    fm_selectedSteamItem = allItems.find(o => o.productName === selectedName) || null;
+                }
                 fm_triggerSearch();
+                removeListeners();
                 modal.remove();
             };
 
             document.getElementById('fmEditQuerySaveBtn').onclick = saveAndClose;
             input.onkeydown = (e) => { if (e.key === 'Enter') saveAndClose(); };
             modal.addEventListener('click', (e) => {
-                if (e.target === modal) modal.remove();
+                if (e.target === modal) {
+                    removeListeners();
+                    modal.remove();
+                }
             });
+            modal.querySelectorAll('.fm-edit-filter-input').forEach(filterInput => {
+                filterInput.addEventListener('input', (e) => {
+                    const type = e.target.id.includes('editions') ? 'editions' : 'dlc';
+                    filterState[type] = e.target.value;
+                    debouncedRender();
+                });
+            });
+            modal.querySelectorAll('.fm-edit-sort-btn').forEach(btn => {
+                btn.addEventListener('click', () => handleSortClick(btn.dataset.type, btn.dataset.field));
+            });
+            renderLists();
         }
 
         function fm_exportExclusions() {
@@ -2302,7 +2863,35 @@
             fm_triggerSearch();
         }
 
+        function fm_minimizeModal() {
+            const restoreBtn = document.getElementById('findMasterRestoreBtn');
+            const ugfModal = document.getElementById('ugf-modal');
+
+            if (fm_modal) fm_modal.style.display = 'none';
+            if (ugfModal) ugfModal.style.display = 'none';
+
+            if (restoreBtn) restoreBtn.style.display = 'flex';
+            document.body.style.overflow = '';
+            fm_isMinimized = true;
+        }
+
+        function fm_restoreModal() {
+            const restoreBtn = document.getElementById('findMasterRestoreBtn');
+            const ugfModal = document.getElementById('ugf-modal');
+
+            if (fm_modal) fm_modal.style.display = 'block';
+            if (ugfModal) ugfModal.style.display = 'flex';
+
+            if (restoreBtn) restoreBtn.style.display = 'none';
+            document.body.style.overflow = 'hidden';
+            fm_isMinimized = false;
+        }
+
         function fm_hideModal() {
+            const restoreBtn = document.getElementById('findMasterRestoreBtn');
+            if (restoreBtn) restoreBtn.remove();
+            fm_isMinimized = false;
+
             if (fm_modal) {
                 fm_modal.style.display = 'none';
                 if (fm_modal._escHandler) {
@@ -2331,6 +2920,13 @@
         }
 
         async function fm_triggerSearch() {
+            const isRefinedSearch = fm_selectedSteamItem !== null;
+
+            if (!isRefinedSearch) {
+                fm_steamPageOffersCache = null;
+                fm_steamPageDocumentCache = null;
+            }
+
             try {
                 fm_updateStatus('Загрузка курсов валют...', true);
                 await Promise.all([
@@ -2348,11 +2944,23 @@
             }
 
             const titleFilterInput = document.getElementById('fmTitleFilterInput');
-            if (titleFilterInput) titleFilterInput.value = '';
+            if (titleFilterInput && !isRefinedSearch) {
+                titleFilterInput.value = '';
+            }
 
             fm_currentResults = [];
+            if (fm_selectedSteamItem) {
+                fm_currentResults.push(fm_selectedSteamItem);
+            }
+
             fm_resultsDiv.innerHTML = '';
             fm_stores = {};
+            if (isRefinedSearch) {
+                const steamModule = fm_storeModules.find(m => m.id === 'steam');
+                if (steamModule) {
+                    fm_stores[steamModule.id] = { name: steamModule.name, status: 'success', error: null };
+                }
+            }
             fm_highlightErrorStores();
             fm_updateStatus(`Поиск "${gameName}"...`, true);
             fm_activeRequests = 0;
@@ -2361,14 +2969,10 @@
             let totalStoresToCheck = 0;
 
             fm_storeModules.filter(m => m && typeof m.fetch === 'function').forEach(storeModule => {
-                if (fm_currentFilters.stores[storeModule.id] !== false) {
+                if (fm_currentFilters.stores[storeModule.id] !== false && !(isRefinedSearch && storeModule.id === 'steam')) {
                     totalStoresToCheck++;
                     fm_activeRequests++;
-                    fm_stores[storeModule.id] = {
-                        name: storeModule.name,
-                        status: 'pending',
-                        error: null
-                    };
+                    fm_stores[storeModule.id] = { name: storeModule.name, status: 'pending', error: null };
                     promises.push(
                         storeModule.fetch(gameName)
                         .then(results => {
@@ -2386,22 +2990,24 @@
                             fm_updateLoadingProgress(totalStoresToCheck);
                         })
                     );
-                } else {
-                    fm_stores[storeModule.id] = {
-                        name: storeModule.name,
-                        status: 'skipped',
-                        error: null
-                    };
+                } else if (fm_currentFilters.stores[storeModule.id] === false) {
+                     fm_stores[storeModule.id] = { name: storeModule.name, status: 'skipped', error: null };
                 }
             });
 
+            if (promises.length === 0 && fm_currentResults.length > 0) {
+                fm_updateLoadingProgress(totalStoresToCheck);
+                fm_renderResults();
+                fm_applyFilters();
+                return;
+            }
             if (promises.length === 0) {
                 fm_updateStatus('Нет активных магазинов для поиска.');
                 return;
             }
 
             const resultsArrays = await Promise.all(promises);
-            fm_currentResults = resultsArrays.flat();
+            fm_currentResults = fm_currentResults.concat(resultsArrays.flat());
 
             const autoInsertTitle = true;
             if (autoInsertTitle) {
@@ -2756,9 +3362,10 @@
 
         function fm_applyFilters() {
             if (!fm_resultsDiv || !fm_currentResults) return;
+
             const titleFilterInput = document.getElementById('fmTitleFilterInput');
             const rawTitleFilterText = titleFilterInput ? titleFilterInput.value.trim() : '';
-            const titleFilterTerms = rawTitleFilterText.split(';').map(term => term.trim().toLowerCase()).filter(term => term.length > 0);
+
             const keywords = fm_exclusionKeywords.map(k => k.toLowerCase());
             const pMin = parseFloat(fm_currentFilters.priceMin) || 0;
             const pMax = parseFloat(fm_currentFilters.priceMax) || Infinity;
@@ -2768,6 +3375,48 @@
             const daMax = parseFloat(fm_currentFilters.discountAmountMax) || Infinity;
             const hasDiscountFilter = fm_currentFilters.hasDiscount || false;
             const activeStoreFilters = fm_currentFilters.stores;
+
+            const checkTitleAdvanced = (itemTitle) => {
+                if (!rawTitleFilterText) {
+                    return true;
+                }
+
+                const orGroups = rawTitleFilterText.split(/{или}/gi);
+
+                return orGroups.some(orGroup => {
+                    if (!orGroup.trim()) return false;
+
+                    const tokens = orGroup.split(/({и}|{не})/gi).map(t => t.trim()).filter(t => t);
+                    if (tokens.length === 0) return true;
+
+                    let mustHaveTerms = [];
+                    let mustNotHaveTerms = [];
+
+                    let currentOperator = '{и}';
+                    tokens.forEach(token => {
+                        const lowerToken = token.toLowerCase();
+                        if (lowerToken === '{и}' || lowerToken === '{не}') {
+                            currentOperator = lowerToken;
+                        } else {
+                            if (currentOperator === '{и}') {
+                                mustHaveTerms.push(token.toLowerCase());
+                            } else {
+                                mustNotHaveTerms.push(token.toLowerCase());
+                            }
+                        }
+                    });
+
+                    if (mustHaveTerms.length > 0 && !mustHaveTerms.every(term => itemTitle.includes(term))) {
+                        return false;
+                    }
+                    if (mustNotHaveTerms.length > 0 && mustNotHaveTerms.some(term => itemTitle.includes(term))) {
+                        return false;
+                    }
+
+                    return true;
+                });
+            };
+
             let visibleCount = 0;
             const items = fm_resultsDiv.querySelectorAll('.findMasterItem');
 
@@ -2782,16 +3431,20 @@
                     itemElement.classList.add('hidden-by-filter');
                     return;
                 }
+
                 const titleElement = itemElement.querySelector('.fm-title');
                 const itemTitle = titleElement ? titleElement.textContent.trim().toLowerCase() : '';
-                let hideByTitleFilter = false;
-                if (titleFilterTerms.length > 0 && !titleFilterTerms.some(term => itemTitle.includes(term))) {
-                    hideByTitleFilter = true;
-                }
+
                 let shouldHide = false;
-                if (activeStoreFilters[itemData.storeId] === false) {
+
+                if (!checkTitleAdvanced(itemTitle)) {
                     shouldHide = true;
                 }
+
+                if (!shouldHide && activeStoreFilters[itemData.storeId] === false) {
+                    shouldHide = true;
+                }
+
                 if (!shouldHide && keywords.length > 0) {
                     let textToSearch = itemTitle;
                     if (itemData.storeId === 'platimarket' && itemData.sellerName) {
@@ -2801,6 +3454,7 @@
                         shouldHide = true;
                     }
                 }
+
                 if (!shouldHide && itemData.currentPrice !== null) {
                     if (itemData.currentPrice < pMin || itemData.currentPrice > pMax) {
                         shouldHide = true;
@@ -2810,24 +3464,28 @@
                         shouldHide = true;
                     }
                 }
+
                 if (!shouldHide) {
                     const discountP = itemData.discountPercent ?? 0;
                     if (discountP < dpMin || discountP > dpMax) {
                         shouldHide = true;
                     }
                 }
+
                 if (!shouldHide) {
                     const discountA = itemData.discountAmount ?? 0;
                     if (discountA < daMin || discountA > daMax) {
                         shouldHide = true;
                     }
                 }
+
                 if (!shouldHide && hasDiscountFilter) {
                     if (!itemData.discountPercent || itemData.discountPercent <= 0) {
                         shouldHide = true;
                     }
                 }
-                if (shouldHide || hideByTitleFilter) {
+
+                if (shouldHide) {
                     itemElement.classList.add('hidden-by-filter');
                 } else {
                     itemElement.classList.remove('hidden-by-filter');
@@ -2836,8 +3494,9 @@
             });
 
             const totalLoadedCount = fm_currentResults.length;
-            const anyFilterActive = pMin > 0 || pMax < Infinity || dpMin > 0 || dpMax < 100 || daMin > 0 || daMax < Infinity || hasDiscountFilter || keywords.length > 0 || Object.values(activeStoreFilters).some(v => v === false) || titleFilterTerms.length > 0;
+            const anyFilterActive = pMin > 0 || pMax < Infinity || dpMin > 0 || dpMax < 100 || daMin > 0 || daMax < Infinity || hasDiscountFilter || keywords.length > 0 || Object.values(activeStoreFilters).some(v => v === false) || rawTitleFilterText.length > 0;
             const errorStoresCount = Object.values(fm_stores).filter(s => s.status === 'error').length;
+
             let statusMessage = '';
             if (fm_activeRequests === 0) {
                 if (totalLoadedCount > 0) {
@@ -2854,6 +3513,7 @@
                 }
                 fm_updateStatus(statusMessage.trim(), false);
             }
+
             if (visibleCount === 0 && totalLoadedCount > 0 && anyFilterActive && fm_activeRequests === 0) {
                 const statusDivInHeader = document.getElementById('findMasterHeaderStatus');
                 if (statusDivInHeader) {
@@ -2891,6 +3551,46 @@
                 tag.title = `Удалить "${keyword}"`;
                 tag.onclick = () => fm_removeExclusionKeyword(keyword);
                 fm_exclusionTagsListDiv.appendChild(tag);
+            });
+        }
+
+        function fm_showFilterHelpModal() {
+            const modalId = 'fmFilterHelpModal';
+            if (document.getElementById(modalId)) return;
+
+            const helpModal = document.createElement('div');
+            helpModal.id = modalId;
+            Object.assign(helpModal.style, {
+                position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
+                backgroundColor: 'rgba(0,0,0,0.8)', zIndex: '1000007', display: 'flex',
+                alignItems: 'center', justifyContent: 'center'
+            });
+
+            helpModal.innerHTML = `
+                <div class="fm-help-modal-content">
+                    <button class="fm-help-close-btn">&times;</button>
+                    <h4 style="margin-top:0; color:#67c1f5;">Справка по фильтру названий</h4>
+                    <p style="font-size: 16px; margin-bottom: 20px;">Используйте операторы <strong>{и}</strong>, <strong>{или}</strong>, <strong>{не}</strong> для создания сложных запросов.</p>
+                    <ul style="list-style:none; padding-left:0; line-height:1.8; font-size: 15px;">
+                        <li><code style="background:#1a2635; padding:2px 5px; border-radius:3px;">Witcher 3{и}Deluxe</code><br><span style="color:#8f98a0; font-size:14px;">Найдет товары, содержащие и "Witcher 3", и "Deluxe".</span></li>
+                        <li style="margin-top:15px;"><code style="background:#1a2635; padding:2px 5px; border-radius:3px;">Witcher{или}Ведьмак</code><br><span style="color:#8f98a0; font-size:14px;">Найдет товары, содержащие "Witcher" или "Ведьмак".</span></li>
+                        <li style="margin-top:15px;"><code style="background:#1a2635; padding:2px 5px; border-radius:3px;">Witcher 3{не}GOTY</code><br><span style="color:#8f98a0; font-size:14px;">Найдет "Witcher 3", но исключит из результатов те, что содержат "GOTY".</span></li>
+                        <li style="margin-top:15px;"><code style="background:#1a2635; padding:2px 5px; border-radius:3px;">Deluxe{и}Gold{не}Standard{или}Ultimate</code><br><span style="color:#8f98a0; font-size:14px;">Найдены будут товары, которые: (содержат "Deluxe" И "Gold" И НЕ содержат "Standard") ИЛИ (содержат "Ultimate").</span></li>
+                    </ul>
+                    <p style="font-size:14px; color:#8f98a0; margin-top:25px; border-top: 1px solid #3a4f6a; padding-top: 15px;">Операторы не чувствительны к регистру.</p>
+                </div>
+            `;
+
+            document.body.appendChild(helpModal);
+
+            helpModal.addEventListener('click', (event) => {
+                if (event.target === helpModal) {
+                    helpModal.remove();
+                }
+            });
+
+            helpModal.querySelector('.fm-help-close-btn').addEventListener('click', () => {
+                helpModal.remove();
             });
         }
 
@@ -3033,135 +3733,55 @@
             if (document.getElementById(modalId)) return;
 
             const STEAM_REGIONS = {
-                'RU': {
-                    name: 'Российский рубль'
-                },
-                'KZ': {
-                    name: 'Казахстанский тенге'
-                },
-                'AZ': {
-                    name: 'СНГ - Доллар США'
-                },
-                'US': {
-                    name: 'Доллар США'
-                },
-                'AU': {
-                    name: 'Австралийский доллар'
-                },
-                'BR': {
-                    name: 'Бразильский реал'
-                },
-                'GB': {
-                    name: 'Британский фунт'
-                },
-                'VN': {
-                    name: 'Вьетнамский донг'
-                },
-                'HK': {
-                    name: 'Гонконгский доллар'
-                },
-                'AE': {
-                    name: 'Дирхам ОАЭ'
-                },
-                'EU': {
-                    name: 'Евро'
-                },
-                'IL': {
-                    name: 'Израильский новый шекель'
-                },
-                'IN': {
-                    name: 'Индийская рупия'
-                },
-                'ID': {
-                    name: 'Индонезийская рупия'
-                },
-                'CA': {
-                    name: 'Канадский доллар'
-                },
-                'QA': {
-                    name: 'Катарский риал'
-                },
-                'CN': {
-                    name: 'Китайский юань'
-                },
-                'CO': {
-                    name: 'Колумбийское песо'
-                },
-                'CR': {
-                    name: 'Коста-риканский колон'
-                },
-                'KW': {
-                    name: 'Кувейтский динар'
-                },
-                'AR': {
-                    name: 'Лат. Ам. - Доллар США'
-                },
-                'MY': {
-                    name: 'Малазийский ринггит'
-                },
-                'TR': {
-                    name: 'MENA - Доллар США'
-                },
-                'MX': {
-                    name: 'Мексиканское песо'
-                },
-                'NZ': {
-                    name: 'Новозеландский доллар'
-                },
-                'NO': {
-                    name: 'Норвежская крона'
-                },
-                'PE': {
-                    name: 'Перуанский соль'
-                },
-                'PL': {
-                    name: 'Польский злотый'
-                },
-                'SA': {
-                    name: 'Саудовский риал'
-                },
-                'SG': {
-                    name: 'Сингапурский доллар'
-                },
-                'TW': {
-                    name: 'Тайваньский доллар'
-                },
-                'TH': {
-                    name: 'Тайский бат'
-                },
-                'UA': {
-                    name: 'Украинская гривна'
-                },
-                'UY': {
-                    name: 'Уругвайское песо'
-                },
-                'PH': {
-                    name: 'Филиппинское песо'
-                },
-                'CL': {
-                    name: 'Чилийское песо'
-                },
-                'CH': {
-                    name: 'Швейцарский франк'
-                },
-                'PK': {
-                    name: 'Юж. Азия - Доллар США'
-                },
-                'ZA': {
-                    name: 'Южноафриканский рэнд'
-                },
-                'KR': {
-                    name: 'Южнокорейская вона'
-                },
-                'JP': {
-                    name: 'Японская иена'
-                }
+                'ru': { name: 'Российский рубль' },
+                'kz': { name: 'Казахстанский тенге' },
+                'az': { name: 'СНГ - Доллар США' },
+                'us': { name: 'Доллар США' },
+                'au': { name: 'Австралийский доллар' },
+                'br': { name: 'Бразильский реал' },
+                'gb': { name: 'Британский фунт' },
+                'vn': { name: 'Вьетнамский донг' },
+                'hk': { name: 'Гонконгский доллар' },
+                'ae': { name: 'Дирхам ОАЭ' },
+                'eu': { name: 'Евро' },
+                'il': { name: 'Израильский новый шекель' },
+                'in': { name: 'Индийская рупия' },
+                'id': { name: 'Индонезийская рупия' },
+                'ca': { name: 'Канадский доллар' },
+                'qa': { name: 'Катарский риал' },
+                'cn': { name: 'Китайский юань' },
+                'co': { name: 'Колумбийское песо' },
+                'cr': { name: 'Коста-риканский колон' },
+                'kw': { name: 'Кувейтский динар' },
+                'ar': { name: 'Лат. Ам. - Доллар США' },
+                'my': { name: 'Малазийский ринггит' },
+                'tr': { name: 'MENA - Доллар США' },
+                'mx': { name: 'Мексиканское песо' },
+                'nz': { name: 'Новозеландский доллар' },
+                'no': { name: 'Норвежская крона' },
+                'pe': { name: 'Перуанский соль' },
+                'pl': { name: 'Польский злотый' },
+                'sa': { name: 'Саудовский риал' },
+                'sg': { name: 'Сингапурский доллар' },
+                'tw': { name: 'Тайваньский доллар' },
+                'th': { name: 'Тайский бат' },
+                'ua': { name: 'Украинская гривна' },
+                'uy': { name: 'Уругвайское песо' },
+                'ph': { name: 'Филиппинское песо' },
+                'cl': { name: 'Чилийское песо' },
+                'ch': { name: 'Швейцарский франк' },
+                'pk': { name: 'Юж. Азия - Доллар США' },
+                'za': { name: 'Южноафриканский рэнд' },
+                'kr': { name: 'Южнокорейская вона' },
+                'jp': { name: 'Японская иена' }
             };
 
             const createSelect = (id, label, selectedValue) => {
                 let optionsHtml = `<option value="">- Нет -</option>`;
+                const lowerSelectedValue = selectedValue ? selectedValue.toLowerCase() : "";
                 for (const code in STEAM_REGIONS) {
-                    optionsHtml += `<option value="${code}" ${code === selectedValue ? 'selected' : ''}>${STEAM_REGIONS[code].name} (${code})</option>`;
+                    const isSelected = code === lowerSelectedValue ? 'selected' : '';
+                    optionsHtml += `<option value="${code.toUpperCase()}" ${isSelected}>${STEAM_REGIONS[code].name} (${code.toUpperCase()})</option>`;
                 }
                 return `
                     <div style="margin-bottom: 15px;">
@@ -3239,164 +3859,67 @@
                         return [];
                     }
 
+                    let sessionCookies;
+                    try {
+                        sessionCookies = await fm_getAnonymousSession();
+                    } catch (e) {
+                        throw new Error('Не удалось создать анонимную сессию для Steam.');
+                    }
+
                     const primaryRegion = GM_getValue(FM_STORAGE_PREFIX + 'steam_primary_region', 'RU');
                     const fallback1 = GM_getValue(FM_STORAGE_PREFIX + 'steam_fallback_1', 'KZ');
                     const fallback2 = GM_getValue(FM_STORAGE_PREFIX + 'steam_fallback_2', 'AZ');
                     const fallback3 = GM_getValue(FM_STORAGE_PREFIX + 'steam_fallback_3', 'US');
-
                     const regionsToTry = [...new Set([primaryRegion, fallback1, fallback2, fallback3].filter(Boolean))];
-                    let priceData = null;
 
                     for (const regionCode of regionsToTry) {
-                        const inputJson = {
-                            ids: [{
-                                appid: parseInt(fm_selectedSteamData.appId, 10)
-                            }],
-                            context: {
-                                language: "russian",
-                                country_code: regionCode,
-                                steam_realm: 1
-                            },
-                            data_request: {
-                                include_basic_info: true,
-                                include_assets: true,
-                                include_all_purchase_options: true
-                            }
-                        };
-                        const url = `https://api.steampowered.com/IStoreBrowseService/GetItems/v1?input_json=${encodeURIComponent(JSON.stringify(inputJson))}`;
+                        const successfulHtml = await fm_fetchSteamPageWithBypass(fm_selectedSteamData.appId, regionCode, sessionCookies);
 
-                        try {
-                            const response = await new Promise((resolve, reject) => {
-                                GM_xmlhttpRequest({
-                                    method: 'GET',
-                                    url,
-                                    responseType: 'json',
-                                    timeout: FM_REQUEST_TIMEOUT_MS,
-                                    onload: resolve,
-                                    onerror: reject,
-                                    ontimeout: reject
-                                });
-                            });
+                        if (successfulHtml) {
+                            fm_logInfo(storeModule.name, `Успех! Получены данные для региона: ${regionCode}`);
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(successfulHtml, 'text/html');
 
-                            const storeItem = response.response?.response?.store_items?.[0];
-                            if (storeItem && storeItem.success === 1 && storeItem.visible && storeItem.purchase_options && storeItem.purchase_options.length > 0) {
-                                priceData = {
-                                    storeItem,
-                                    region: regionCode
+                            fm_steamPageDocumentCache = doc;
+                            const offers = await fm_scrapeSteamPageOffers(doc);
+                            const allSteamItems = [...offers.editions, ...offers.dlc];
+
+                            const mapOfferToItem = (offer) => {
+                                let item = {
+                                    storeId: storeModule.id,
+                                    storeName: `${storeModule.name} (${regionCode})`,
+                                    storeUrl: storeModule.baseUrl,
+                                    productName: offer.title,
+                                    productUrl: `${storeModule.baseUrl}/app/${fm_selectedSteamData.appId}`,
+                                    imageUrl: doc.querySelector('#gameHeaderImageCtn img.game_header_image_full')?.src,
+                                    currentPrice: offer.price,
+                                    originalPrice: offer.originalPrice,
+                                    discountPercent: offer.discountPercent,
+                                    currency: 'RUB',
+                                    isAvailable: offer.price !== null,
+                                    type: offer.type
                                 };
-                                break;
-                            } else {
-                                fm_logError(storeModule.name, `Нет данных о цене для региона ${regionCode}. Ответ:`, storeItem);
-                            }
-                        } catch (e) {
-                            fm_logError(storeModule.name, `Ошибка запроса для региона ${regionCode}`, e);
-                        }
-                    }
-
-                    if (!priceData) {
-                        fm_logError(storeModule.name, 'Не удалось получить цены ни для одного из регионов.');
-                        return [];
-                    }
-
-                    return storeModule.parseApiResponse(priceData.storeItem, priceData.region, storeModule);
-                },
-                parseApiResponse: async function(storeItem, region, storeModule) {
-                    const results = [];
-                    const countryToCurrency = {
-                        'RU': 'RUB',
-                        'KZ': 'KZT',
-                        'UA': 'UAH',
-                        'GB': 'GBP',
-                        'EU': 'EUR',
-                        'JP': 'JPY',
-                        'CN': 'CNY',
-                        'IN': 'INR',
-                        'BR': 'BRL',
-                        'CA': 'CAD',
-                        'AU': 'AUD',
-                        'CH': 'CHF',
-                        'NO': 'NOK',
-                        'PL': 'PLN',
-                        'NZ': 'NZD',
-                        'MX': 'MXN',
-                        'SG': 'SGD',
-                        'HK': 'HKD',
-                        'KR': 'KRW',
-                        'ZA': 'ZAR',
-                        'AE': 'AED',
-                        'CL': 'CLP',
-                        'CO': 'COP',
-                        'CR': 'CRC',
-                        'PE': 'PEN',
-                        'UY': 'UYU',
-                        'VN': 'VND',
-                        'PH': 'PHP',
-                        'MY': 'MYR',
-                        'ID': 'IDR',
-                        'TH': 'THB',
-                        'SA': 'SAR',
-                        'QA': 'QAR',
-                        'KW': 'KWD',
-                        'IL': 'ILS',
-                        'TW': 'TWD',
-                        'US': 'USD',
-                        'AZ': 'USD',
-                        'AR': 'USD',
-                        'PK': 'USD',
-                        'TR': 'USD'
-                    };
-
-                    for (const option of (storeItem.purchase_options || [])) {
-                        try {
-                            const productName = option.purchase_option_name;
-                            const currentPriceInCents = option.final_price_in_cents ? parseInt(option.final_price_in_cents, 10) : null;
-                            const originalPriceInCents = option.original_price_in_cents ? parseInt(option.original_price_in_cents, 10) : currentPriceInCents;
-
-                            if (!productName || currentPriceInCents === null) continue;
-
-                            let currencyCode = countryToCurrency[region] || 'USD';
-                            let currentPrice = parseFloat((currentPriceInCents / 100).toFixed(2));
-                            let originalPrice = parseFloat((originalPriceInCents / 100).toFixed(2));
-
-                            if (currencyCode.toUpperCase() !== 'RUB') {
-                                try {
-                                    const rates = await fm_fetchExchangeRates(currencyCode.toLowerCase());
-                                    const rate = rates['rub'];
-                                    if (rate) {
-                                        currentPrice = parseFloat((currentPrice * rate).toFixed(2));
-                                        originalPrice = parseFloat((originalPrice * rate).toFixed(2));
-                                    } else {
-                                        fm_logError(storeModule.name, `Не найден курс для ${currencyCode} -> RUB`);
-                                        continue;
-                                    }
-                                } catch (e) {
-                                    fm_logError(storeModule.name, `Ошибка получения курса для ${currencyCode}`, e);
-                                    continue;
-                                }
-                            }
-
-                            let data = {
-                                storeId: storeModule.id,
-                                storeName: `${storeModule.name} (${region})`,
-                                storeUrl: storeModule.baseUrl,
-                                productName: productName,
-                                productUrl: `${storeModule.baseUrl}/app/${storeItem.appid}`,
-                                imageUrl: storeItem.assets?.header ? `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${storeItem.appid}/${storeItem.assets.header}` : null,
-                                currentPrice: currentPrice,
-                                originalPrice: originalPrice,
-                                discountPercent: option.discount_pct || null,
-                                discountAmount: null,
-                                currency: 'RUB',
-                                isAvailable: true
+                                return fm_calculateMissingValues(item);
                             };
-                            results.push(fm_calculateMissingValues(data));
-                        } catch(e) {
-                            fm_logError(storeModule.name, 'Ошибка парсинга purchase_option', e);
+
+                            const finalResults = allSteamItems.map(mapOfferToItem);
+                            fm_steamPageOffersCache = {
+                                editions: finalResults.filter(item => item.type === 'sub' || item.type === 'bundle'),
+                                dlc: finalResults.filter(item => item.type === 'dlc')
+                            };
+
+                            if (fm_selectedSteamItem) {
+                                return [fm_selectedSteamItem];
+                            }
+
+                            return finalResults.filter(item => item.type === 'sub' || item.type === 'bundle');
                         }
                     }
-                    return results;
+
+                    fm_logError(storeModule.name, 'Не удалось получить цены ни для одного из регионов.');
+                    throw new Error('Не удалось получить цены ни для одного из регионов Steam.');
                 }
-            }, // --- Конец модуля Steam ---
+            },
             { // --- Модуль SteamBuy ---
                 id: 'steambuy',
                 name: 'SteamBuy',
@@ -4844,7 +5367,7 @@
                         }
 
                         const fullProductUrl = storeModule.baseUrl + productUrlRaw;
-                        const productUrlWithRef = fullProductUrl + '?ref=zoneofgames';
+                        const productUrlWithRef = fullProductUrl;
 
                         let data = {
                             storeId: storeModule.id,
@@ -5438,12 +5961,15 @@
                     return results;
                 }
             } // --- Конец модуля IGM.GG ---
+
+
             // ... для других магазинов
         ];
 
         return function(gameName, selectedSteam = null) {
             fm_gameNameForSearch = gameName;
             fm_selectedSteamData = selectedSteam;
+            fm_selectedSteamItem = null;
             fm_addStyles();
             fm_currentFilters = GM_getValue(FM_FILTER_STORAGE_KEY, {
                 priceMin: '',
