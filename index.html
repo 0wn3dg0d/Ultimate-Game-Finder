@@ -43,33 +43,10 @@
         </header>
 
         <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 2rem;">
-            <a href="https://greasyfork.org/ru/scripts/543449-ultimate-game-finder" target="_blank" rel="noopener noreferrer" style="display: inline-block; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); transition: box-shadow 0.3s ease, transform 0.3s ease;" onmouseover="this.style.boxShadow='0 8px 25px rgba(191, 166, 90, 0.4)'; this.style.transform='translateY(-2px)';" onmouseout="this.style.boxShadow='0 4px 15px rgba(0, 0, 0, 0.2)'; this.style.transform='translateY(0)';">
+            <a href="https://greasyfork.org/ru/scripts/494878-ultimate-game-finder" target="_blank" rel="noopener noreferrer" style="display: inline-block; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); transition: box-shadow 0.3s ease, transform 0.3s ease;" onmouseover="this.style.boxShadow='0 8px 25px rgba(191, 166, 90, 0.4)'; this.style.transform='translateY(-2px)';" onmouseout="this.style.boxShadow='0 4px 15px rgba(0, 0, 0, 0.2)'; this.style.transform='translateY(0)';">
                 <img src="https://i.imgur.com/NzU7H2j.png" alt="Установить с Greasy Fork" style="max-width: 550px; display: block;">
             </a>
         </div>
-
-
-        <div class="section-divider">
-            <hr class="divider-line">
-            <h2 class="divider-title">Видеодемонстрация функционала</h2>
-            <hr class="divider-line">
-        </div>
-
-        <section id="video-demo" class="text-center mb-12">
-            <video
-                controls
-                muted
-                loop
-                playsinline
-                poster="https://i.imgur.com/tWqlw5t.png"
-                class="feature-img inline-block"
-                style="max-width: 100%; height: auto; border: 1px solid #3A3A3A; border-radius: 0.5rem;"
-            >
-                <source src="https://rawcdn.githack.com/0wn3dg0d/Ultimate-Game-Finder/61757ffd49d3a608d137d03857467f25bd904f9a/ugf-demo.mp4" type="video/mp4">
-                Ваш браузер не поддерживает тег video.
-            </video>
-        </section>
-
 
         <div class="section-divider">
             <hr class="divider-line">
@@ -114,21 +91,25 @@
                          <img src="https://i.imgur.com/6Kvfa3d.png" alt="Пример Агрегатора 1" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;">
                          <br><p><strong>Возможности окна агрегатора:</strong></p>
                          <ul>
-                             <li>Отображение предложений из магазинов: Steam, SteamBuy, Playo, SteamPay, Gabestore, GamersBase, Igromagaz, GamesForFarm, Gamazavr, GameRay, KupiKod, KeysForGamers, Zaka-zaka, Buka, GGSEL, Plati.Market, Rushbe, IGM.gg, Sous-Buy.ru.</li>
-                             <li>Сохранение всех настроек фильтров, сортировки и списка исключений между сессиями.</li>
+                            <li>Отображение предложений из магазинов: Steam, SteamBuy, Playo, SteamPay, Gabestore, GamersBase, Igromagaz, GamesForFarm, Gamazavr, GameRay, KupiKod, KeysForGamers, Zaka-zaka, Buka, GGSEL, Plati.Market, Rushbe, IGM.gg, Sous-Buy.ru.</li>
+                            <li>Сохранение всех настроек фильтров, сортировки и списка исключений между сессиями.</li>
+                            <li>
+                                <strong>Выбор издания для поиска:</strong> Кнопка редактирования запроса (✎) открывает окно, где можно выбрать конкретное издание или DLC для поиска. Это позволяет находить цены на определённую версию игры, отсекая лишнее. Вы также можете вручную скорректировать название, если считаете, что оно слишком длинное или содержит спецсимволы, мешающие поиску.
+                                <ul>
+                                    <li style="margin-top: 5px;">При поиске без выбора конкретного издания в результаты будут добавлены все основные издания игры со страницы Steam (без DLC).</li>
+                                    <li style="margin-top: 5px;">При выборе конкретного издания или DLC оно будет добавлено в результаты для прямого сравнения цен.</li>
+                                </ul>
+                                <img src="https://i.imgur.com/bGv9vXX.png" alt="Окно выбора издания" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;">
+                                <img src="https://i.imgur.com/X8yBBGe.png" alt="Пример поиска по конкретному изданию" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;"><br>
+                            </li>
                              <li>
-                                 <strong>Выбор издания для поиска:</strong> Кнопка редактирования запроса (✎) открывает окно, где можно выбрать конкретное издание или DLC для поиска. Это позволяет находить цены на определённую версию игры, отсекая лишнее. Вы также можете вручную скорректировать название, если считаете, что оно слишком длинное или содержит спецсимволы, мешающие поиску.
-                                 <ul>
-                                     <li style="margin-top: 5px;">При поиске без выбора конкретного издания в результаты будут добавлены все основные издания игры со страницы Steam (без DLC).</li>
-                                     <li style="margin-top: 5px;">При выборе конкретного издания или DLC оно будет добавлено в результаты для прямого сравнения цен.</li>
-                                 </ul>
-                                 <img src="https://i.imgur.com/bGv9vXX.png" alt="Окно выбора издания" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;">
-                                 <img src="https://i.imgur.com/X8yBBGe.png" alt="Пример поиска по конкретному изданию" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;"><br>
-                             </li>
+                                <strong>Гибкая фильтрация по названию:</strong> Помимо простого поиска, фильтр по названию поддерживает логические операторы <strong>{и}</strong>, <strong>{или}</strong>, <strong>{не}</strong>. Рядом с полем ввода есть выпадающая панель, которая помогает быстро вставить нужный оператор.
+                                <img src="https://i.imgur.com/xe67rh6.png" alt="Панель фильтра с операторами" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;"><br>
+                            </li>
                              <li>
-                                 <strong>Гибкая фильтрация по названию:</strong> Помимо простого поиска, фильтр по названию поддерживает логические операторы <strong>{и}</strong>, <strong>{или}</strong>, <strong>{не}</strong> для создания сложных запросов.
-                                 <img src="https://i.imgur.com/MMdcw4Y.png" alt="Пример сложной фильтрации" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;"><br>
-                             </li>
+                                <strong>Контекстное меню для быстрой фильтрации:</strong> Выделите текст в названии товара или имени продавца и нажмите правую кнопку мыши, чтобы открыть меню. Оно позволяет мгновенно добавить слово в фильтр с нужным оператором или в список постоянных исключений.
+                                <img src="https://i.imgur.com/nPXNDAN.png" alt="Контекстное меню в действии" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;"><br>
+                            </li>
 							 <li><strong>Гибкая настройка регионов Steam:</strong> Вы можете задать основной и несколько запасных регионов (например, Казахстан, СНГ и США). Если цена недоступна в основном регионе, скрипт автоматически проверит остальные по порядку. Настройка доступна при щелчке по значку ⚙️ рядом с магазином Steam в панели фильтров.</li>
                              <li><strong>Учёт подписки IGM.gg:</strong> Если у вас есть активная подписка на IGM.gg, вы можете включить опцию для отображения цен с учётом подписной скидки. Это также настраивается через значок ⚙️ рядом с магазином IGM.gg.</li>
                              <li><strong>Сортировка и фильтрация:</strong> Результаты можно сортировать по цене, проценту и сумме скидки, а также по названию. Доступны стандартные фильтры по диапазону цен, скидкам, их наличию и по конкретным магазинам.</li>
@@ -136,9 +117,9 @@
                              <li><strong>Исключение по ключевым словам:</strong> Создайте свой список слов-исключений (например, "vr", "валюта", "пополнение"), чтобы автоматически скрывать нерелевантные товары из результатов поиска.</li>
                              <img src="https://i.imgur.com/sCel0o8.png" alt="Панель исключений" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;"><br>
                              <li>
-                                 <strong>Импорт и экспорт исключений:</strong> Списком исключений можно легко поделиться. Функция импорта предлагает два режима: <strong>"Добавить к списку"</strong> (объединяет ваш текущий список с импортируемым) и <strong>"Перезаписать список"</strong> (полностью заменяет старый список новым).
-                                 <img src="https://i.imgur.com/RhIz6KT.png" alt="Окно импорта исключений" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;"><br>
-                             </li>
+                                <strong>Импорт и экспорт исключений:</strong> Списком исключений можно легко поделиться. Функция импорта предлагает два режима: <strong>"Добавить к списку"</strong> (объединяет ваш текущий список с импортируемым) и <strong>"Перезаписать список"</strong> (полностью заменяет старый список новым).
+                                <img src="https://i.imgur.com/RhIz6KT.png" alt="Окно импорта исключений" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;"><br>
+                            </li>
                              <li><strong>Переключение валют:</strong> Позволяет просматривать все цены в рублях (RUB) или долларах США (USD) с автоматической конвертацией по актуальному курсу. Ваш выбор сохраняется для будущих сессий.</li>
                              <img src="https://i.imgur.com/WGJvnji.png" alt="Пример отображения в USD" style="max-width: 90%; height: auto; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; border: 1px solid #333;"><br>
                              <li><strong>Режим сворачивания:</strong> Окно агрегатора и основное окно скрипта можно временно скрыть, нажав кнопку "—". Они свернутся в компактную кнопку в правом нижнем углу экрана, не сбрасывая результаты. Нажатие на кнопку восстановит окно в прежнем виде.</li>
@@ -161,7 +142,7 @@
                <div class="bg-dx-bg-secondary border border-dx-border rounded-lg p-6 details-content">
                     <h3 class="text-2xl font-semibold text-dx-gold mb-4">Важное замечание о работе скрипта</h3>
                     <p>По умолчанию скрипт настроен на работу на <strong>любом сайте</strong> благодаря директиве:</p>
-                    <pre class="bg-black p-3 rounded-md text-xs text-dx-text whitespace-pre-wrap break-all my-2">// @match         *://*/*</pre>
+                    <pre class="bg-black p-3 rounded-md text-xs text-dx-text whitespace-pre-wrap break-all my-2">// @match        *://*/*</pre>
                     <p>Если вы хотите ограничить работу скрипта только определёнными сайтами, вам необходимо отредактировать эту строку в настройках Tampermonkey.</p>
                     <h4 class="text-lg font-semibold text-dx-gold-light mt-4">Как изменить список сайтов:</h4>
                      <ol>
@@ -173,14 +154,14 @@
                      <p class="mt-2"><strong>Примеры:</strong></p>
                      <ul>
                          <li><strong>Только для YouTube и Twitch:</strong>
-<pre class="bg-black p-3 rounded-md text-xs text-dx-text whitespace-pre-wrap break-all my-2">// @match         *://*.youtube.com/*
-// @match         *://www.twitch.tv/*</pre>
+<pre class="bg-black p-3 rounded-md text-xs text-dx-text whitespace-pre-wrap break-all my-2">// @match        *://*.youtube.com/*
+// @match        *://www.twitch.tv/*</pre>
                          </li>
                          <li><strong>Для всех поддоменов google.com:</strong>
-<pre class="bg-black p-3 rounded-md text-xs text-dx-text whitespace-pre-wrap break-all my-2">// @match         *://*.google.com/*</pre>
+<pre class="bg-black p-3 rounded-md text-xs text-dx-text whitespace-pre-wrap break-all my-2">// @match        *://*.google.com/*</pre>
                          </li>
                      </ul>
-                     <p><strong>Примечание:</strong> Если вы хотите применять данный скрипт на страницах Steam, то рекомендуем использовать более мощный скрипт <a href="https://greasyfork.org/ru/scripts/526180-ultimate-steam-enhancer" class="text-dx-gold hover:text-dx-gold-light transition-colors" target="_blank">Ultimate Steam Enhancer</a>, так как он предоставляет гораздо больше функций, интегрированных непосредственно в его интерфейс.</p>
+                     <p><strong>Примечание:</strong> Если вы хотите применять данный скрипт на страницах Steam, то рекомендуем использовать более мощный скрипт <a href="https://greasyfork.org/ru/scripts/494879-ultimate-steam-enhancer" class="text-dx-gold hover:text-dx-gold-light transition-colors" target="_blank">Ultimate Steam Enhancer</a>, так как он предоставляет гораздо больше функций, интегрированных непосредственно в его интерфейс.</p>
                </div>
             </section>
 
