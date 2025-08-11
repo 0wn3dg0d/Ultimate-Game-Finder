@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ultimate Game Finder
 // @namespace    https://www.zoneofgames.ru/
-// @version      1.1.1
+// @version      1.1.2
 // @description  Ищет по выделенному тексту: информацию об игре в Steam, русификаторы на ZOG и цены в магазинах
 // @author       0wn3df1x
 // @license      MIT
@@ -1499,6 +1499,55 @@
             }
         }
 
+        function fm_insertOperatorIntoFilter(operator) {
+            const input = document.getElementById('fmTitleFilterInput');
+            if (!input) return;
+
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            const text = input.value;
+            const before = text.substring(0, start);
+            const after = text.substring(end, text.length);
+
+            const operatorWithSpaces = ` ${operator} `;
+            input.value = before + operatorWithSpaces + after;
+
+            const newCursorPos = start + operatorWithSpaces.length;
+            input.focus();
+            input.setSelectionRange(newCursorPos, newCursorPos);
+
+            input.dispatchEvent(new Event('input', {
+                bubbles: true
+            }));
+        }
+
+        function fm_closeFilterHelpPanelOnClickOutside(event) {
+            const wrapper = document.getElementById('fmTitleFilterWrapper');
+            if (wrapper && !wrapper.contains(event.target)) {
+                fm_toggleFilterHelpPanel();
+            }
+        }
+
+        function fm_toggleFilterHelpPanel() {
+            const panel = document.getElementById('fmFilterHelpPanel');
+            const button = document.getElementById('fmToggleFilterHelpBtn');
+            if (!panel || !button) return;
+
+            const isVisible = panel.style.display === 'block';
+
+            if (isVisible) {
+                panel.style.display = 'none';
+                button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>`;
+                document.removeEventListener('click', fm_closeFilterHelpPanelOnClickOutside, true);
+            } else {
+                panel.style.display = 'block';
+                button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6z"/></svg>`;
+                setTimeout(() => {
+                    document.addEventListener('click', fm_closeFilterHelpPanelOnClickOutside, true);
+                }, 0);
+            }
+        }
+
         function fm_addStyles() {
             GM_addStyle(`
                 #findMasterModal {
@@ -1561,6 +1610,119 @@
                     min-height: 36px; flex-shrink: 0;
                 }
                 #findMasterHeaderStatus .spinner { margin-left: 8px; }
+
+                #fmTitleFilterWrapper {
+                    position: relative;
+                    display: flex;
+                    flex-shrink: 0;
+                }
+
+                #fmTitleFilterGroup {
+                    display: flex;
+                }
+
+                #fmTitleFilterWrapper #fmTitleFilterInput {
+                    border-top-right-radius: 0;
+                    border-bottom-right-radius: 0;
+                    border-right: none;
+                }
+
+                #fmTitleFilterWrapper .fm-filter-help-btn {
+                    border-top-left-radius: 0;
+                    border-bottom-left-radius: 0;
+                    margin-left: -1px;
+                    width: auto;
+                    padding: 0 8px;
+                }
+
+                #fmFilterHelpPanel {
+                    position: absolute;
+                    top: calc(100% + 5px);
+                    right: 0;
+                    z-index: 1000005;
+                    background-color: #1f2c3a;
+                    border: 1px solid #67c1f5;
+                    border-radius: 4px;
+                    padding: 15px;
+                    width: 380px;
+                    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+                    display: none;
+                    text-align: left;
+                }
+
+                .fm-filter-help-operators {
+                    display: flex;
+                    gap: 10px;
+                    margin-bottom: 15px;
+                }
+
+                .fm-operator-btn {
+                    padding: 5px 10px;
+                    height: auto;
+                    font-size: 13px;
+                    flex-grow: 1;
+                }
+
+                .fm-filter-help-text p {
+                    font-size: 14px;
+                    margin-bottom: 10px;
+                }
+
+                .fm-filter-help-text ul {
+                    font-size: 13px;
+                    line-height: 1.8;
+                    margin: 0;
+                }
+
+                .fm-filter-help-text code {
+                  background:#1a2635;
+                  padding:2px 5px;
+                  border-radius:3px;
+                }
+
+                .fm-filter-help-text li {
+                    margin-top: 10px;
+                }
+
+                .fm-filter-help-text li:first-child {
+                    margin-top: 0;
+                }
+
+                .fm-filter-help-text span {
+                    color:#8f98a0;
+                    font-size:12px;
+                }
+
+                #fmContextMenu {
+                    position: fixed;
+                    z-index: 1000010;
+                    background-color: #1f2c3a;
+                    border: 1px solid #67c1f5;
+                    border-radius: 4px;
+                    padding: 5px;
+                    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+                    min-width: 200px;
+                    font-size: 14px;
+                }
+                .fm-context-menu-item {
+                    padding: 8px 12px;
+                    color: #c6d4df;
+                    cursor: pointer;
+                    position: relative;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    border-radius: 3px;
+                }
+                .fm-context-menu-item:hover {
+                    background-color: #2a475e;
+                    color: #fff;
+                }
+                .fm-context-menu-separator {
+                    height: 1px;
+                    background-color: #3a4f6a;
+                    margin: 4px 0;
+                }
 
                 .fm-edit-query-content { background-color: #1f2c3a; color: #c6d4df; padding: 25px; border-radius: 5px; border: 1px solid #67c1f5; width: 90%; max-width: 900px; text-align: left; display: flex; flex-direction: column; max-height: 90vh; }
                 .fm-edit-columns { display: flex; gap: 20px; margin-bottom: 20px; overflow: hidden; flex-grow: 1; }
@@ -2005,9 +2167,7 @@
             editQueryBtn.id = 'fmEditQueryBtn';
             editQueryBtn.className = 'findMasterBtn';
             editQueryBtn.title = 'Изменить поисковый запрос';
-
             editQueryBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-.708l-3-3zm.646 6.061L9.793 2.5 3.293 9H3.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.207l6.5-6.5zm-7.468 7.468A.5.5 0 0 1 6 13.5V13h-.5a.5.5 0 0 1-.5-.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.5-.5V10h-.5a.499.499 0 0 1-.175-.032l-.179.178a.5.5 0 0 0-.11.168l-2 5a.5.5 0 0 0 .65.65l5-2a.5.5 0 0 0 .168-.11l.178-.178z"></path></svg>`;
-
             editQueryBtn.onclick = fm_showEditQueryModal;
             editQueryBtn.style.padding = '0 12px';
             header.appendChild(editQueryBtn);
@@ -2048,19 +2208,56 @@
             };
             rightControls.appendChild(insertTitleBtn);
 
+            const titleFilterWrapper = document.createElement('div');
+            titleFilterWrapper.id = 'fmTitleFilterWrapper';
+
+            const titleFilterGroup = document.createElement('div');
+            titleFilterGroup.id = 'fmTitleFilterGroup';
+
             const titleFilterInput = document.createElement('input');
             titleFilterInput.type = 'text';
             titleFilterInput.id = 'fmTitleFilterInput';
             titleFilterInput.placeholder = 'Фильтр по названию...';
             titleFilterInput.addEventListener('input', fm_debounce(fm_applyFilters, FM_FILTER_DEBOUNCE_MS));
-            rightControls.appendChild(titleFilterInput);
+            titleFilterGroup.appendChild(titleFilterInput);
 
             const helpBtn = document.createElement('button');
+            helpBtn.id = 'fmToggleFilterHelpBtn';
             helpBtn.className = 'findMasterBtn fm-filter-help-btn';
-            helpBtn.textContent = '?';
-            helpBtn.title = 'Справка по фильтру';
-            helpBtn.onclick = fm_showFilterHelpModal;
-            rightControls.appendChild(helpBtn);
+            helpBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>`;
+            helpBtn.title = 'Справка и операторы для фильтра';
+            helpBtn.onclick = fm_toggleFilterHelpPanel;
+            titleFilterGroup.appendChild(helpBtn);
+
+            titleFilterWrapper.appendChild(titleFilterGroup);
+
+            const helpPanel = document.createElement('div');
+            helpPanel.id = 'fmFilterHelpPanel';
+            helpPanel.innerHTML = `
+                <div class="fm-filter-help-operators">
+                    <button class="findMasterBtn fm-operator-btn" data-operator="{и}">И</button>
+                    <button class="findMasterBtn fm-operator-btn" data-operator="{или}">ИЛИ</button>
+                    <button class="findMasterBtn fm-operator-btn" data-operator="{не}">НЕ</button>
+                </div>
+                <div class="fm-filter-help-text">
+                    <p>Используйте операторы для создания сложных запросов.</p>
+                    <ul style="list-style:none; padding-left:0;">
+                        <li><code>Witcher 3{и}Deluxe</code><br><span>Найдет товары, содержащие "Witcher 3" и "Deluxe".</span></li>
+                        <li><code>Witcher{или}Ведьмак</code><br><span>Найдет товары с "Witcher" или "Ведьмак".</span></li>
+                        <li><code>Witcher 3{не}GOTY</code><br><span>Найдет "Witcher 3", исключая те, что содержат "GOTY".</span></li>
+                    </ul>
+                </div>
+            `;
+            titleFilterWrapper.appendChild(helpPanel);
+            rightControls.appendChild(titleFilterWrapper);
+
+            helpPanel.querySelectorAll('.fm-operator-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    fm_insertOperatorIntoFilter(e.currentTarget.dataset.operator);
+                });
+            });
+
 
             const currencyToggleBtn = document.createElement('button');
             currencyToggleBtn.id = 'fmCurrencyToggleBtn';
@@ -2187,9 +2384,28 @@
 
             function handleEsc(event) {
                 if (event.key === 'Escape') {
+                    const contextMenu = document.getElementById('fmContextMenu');
+                    const helpPanel = document.getElementById('fmFilterHelpPanel');
                     const importModal = document.getElementById('fmImportModal');
-                    if (importModal) {
+                    const editQueryModal = document.getElementById('fmEditQueryModal');
+                    const igmModal = document.getElementById('fmIgmSubscriptionModal');
+                    const usdConfirmModal = document.getElementById('fmUsdConfirmDialog');
+                    const overwriteModal = document.getElementById('fmOverwriteConfirmModal');
+
+                    if (contextMenu) {
+                        contextMenu.remove();
+                    } else if (helpPanel && helpPanel.style.display !== 'none') {
+                        fm_toggleFilterHelpPanel();
+                    } else if (importModal) {
                         importModal.remove();
+                    } else if (editQueryModal) {
+                        editQueryModal.remove();
+                    } else if (igmModal) {
+                        igmModal.remove();
+                    } else if (usdConfirmModal) {
+                        usdConfirmModal.remove();
+                    } else if (overwriteModal) {
+                        overwriteModal.remove();
                     } else {
                         fm_hideModal();
                     }
@@ -2197,6 +2413,111 @@
             }
             document.addEventListener('keydown', handleEsc);
             fm_modal._escHandler = handleEsc;
+        }
+
+        function fm_addExclusionKeywordFromText(keyword) {
+            const cleanKeyword = keyword.trim().toLowerCase();
+            if (cleanKeyword && !fm_exclusionKeywords.includes(cleanKeyword)) {
+                fm_exclusionKeywords.push(cleanKeyword);
+                GM_setValue(FM_EXCLUSION_STORAGE_KEY, fm_exclusionKeywords);
+                fm_renderExclusionTags();
+                fm_applyFilters();
+            }
+        }
+
+        function fm_showCustomContextMenu(event) {
+            const selectedText = window.getSelection().toString().trim();
+            if (!selectedText) {
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+
+            const existingMenu = document.getElementById('fmContextMenu');
+            if (existingMenu) existingMenu.remove();
+
+            const menu = document.createElement('div');
+            menu.id = 'fmContextMenu';
+            menu.innerHTML = `
+                <div class="fm-context-menu-item" data-action="filter-and">
+                    <span>Добавить в фильтр с {и}</span>
+                </div>
+                <div class="fm-context-menu-item" data-action="filter-or">
+                    <span>Добавить в фильтр с {или}</span>
+                </div>
+                <div class="fm-context-menu-item" data-action="filter-not">
+                    <span>Добавить в фильтр с {не}</span>
+                </div>
+                <div class="fm-context-menu-separator"></div>
+                <div class="fm-context-menu-item" data-action="exclude">
+                    <span>Добавить в список исключений</span>
+                </div>
+                <div class="fm-context-menu-separator"></div>
+                <div class="fm-context-menu-item" data-action="copy">
+                    <span>Копировать текст</span>
+                </div>
+            `;
+
+            document.body.appendChild(menu);
+
+            const menuRect = menu.getBoundingClientRect();
+            let x = event.clientX;
+            let y = event.clientY;
+
+            if (x + menuRect.width > window.innerWidth) {
+                x = window.innerWidth - menuRect.width - 5;
+            }
+            if (y + menuRect.height > window.innerHeight) {
+                y = window.innerHeight - menuRect.height - 5;
+            }
+
+            menu.style.left = `${x}px`;
+            menu.style.top = `${y}px`;
+
+            menu.addEventListener('click', (e) => {
+                const item = e.target.closest('.fm-context-menu-item');
+                if (!item) return;
+
+                const action = item.dataset.action;
+                const filterInput = document.getElementById('fmTitleFilterInput');
+                const currentFilterValue = filterInput.value.trim();
+
+                switch (action) {
+                    case 'filter-and':
+                    case 'filter-or':
+                    case 'filter-not':
+                        const operatorMap = {
+                            'filter-and': 'и',
+                            'filter-or': 'или',
+                            'filter-not': 'не'
+                        };
+                        const operator = operatorMap[action];
+                        filterInput.value = currentFilterValue ? `${currentFilterValue} {${operator}} ${selectedText}` : selectedText;
+                        filterInput.dispatchEvent(new Event('input', {
+                            bubbles: true
+                        }));
+                        break;
+                    case 'exclude':
+                        fm_addExclusionKeywordFromText(selectedText);
+                        break;
+                    case 'copy':
+                        navigator.clipboard.writeText(selectedText).catch(err => console.error('[FindMaster] Copy error:', err));
+                        break;
+                }
+                menu.remove();
+            });
+
+            const closeMenu = (e) => {
+                if (!menu.contains(e.target)) {
+                    menu.remove();
+                    document.removeEventListener('click', closeMenu, true);
+                    document.removeEventListener('contextmenu', closeMenu, true);
+                }
+            };
+            setTimeout(() => {
+                document.addEventListener('click', closeMenu, true);
+                document.addEventListener('contextmenu', closeMenu, true);
+            }, 0);
         }
 
         async function fm_showEditQueryModal() {
@@ -2233,9 +2554,9 @@
                     border-radius: 5px; border: 1px solid #67c1f5;
                     width: 90%; max-width: 500px; text-align: left;
                 `;
-                let message = (!fm_selectedSteamData || !fm_selectedSteamData.appId)
-                    ? 'Не удалось определить игру Steam. Вы можете ввести запрос вручную.'
-                    : 'Не удалось загрузить издания со страницы Steam (возможно, игра недоступна в выбранных регионах). Вы можете ввести запрос вручную.';
+                let message = (!fm_selectedSteamData || !fm_selectedSteamData.appId) ?
+                    'Не удалось определить игру Steam. Вы можете ввести запрос вручную.' :
+                    'Не удалось загрузить издания со страницы Steam (возможно, игра недоступна в выбранных регионах). Вы можете ввести запрос вручную.';
 
                 simpleContent.innerHTML = `
                     <h4 style="margin-top:0; color:#67c1f5;">Изменить поисковый запрос</h4>
@@ -2259,12 +2580,22 @@
                     simpleModal.remove();
                 };
                 document.getElementById('fmEditQuerySaveBtn').onclick = saveAndClose;
-                input.onkeydown = (e) => { if (e.key === 'Enter') saveAndClose(); };
-                simpleModal.addEventListener('click', (e) => {
+                input.onkeydown = (e) => {
+                    if (e.key === 'Enter') saveAndClose();
+                };
+
+                let mousedownOnBackdrop = false;
+                simpleModal.addEventListener('mousedown', (e) => {
                     if (e.target === simpleModal) {
+                        mousedownOnBackdrop = true;
+                    }
+                });
+                simpleModal.addEventListener('mouseup', (e) => {
+                    if (e.target === simpleModal && mousedownOnBackdrop) {
                         removeListeners();
                         simpleModal.remove();
                     }
+                    mousedownOnBackdrop = false;
                 });
                 return;
             }
@@ -2279,12 +2610,28 @@
             `;
 
             const allOffers = {
-                editions: fm_steamPageOffersCache.editions.map((item, index) => ({...item, defaultOrder: index})),
-                dlc: fm_steamPageOffersCache.dlc.map((item, index) => ({...item, defaultOrder: index}))
+                editions: fm_steamPageOffersCache.editions.map((item, index) => ({ ...item,
+                    defaultOrder: index
+                })),
+                dlc: fm_steamPageOffersCache.dlc.map((item, index) => ({ ...item,
+                    defaultOrder: index
+                }))
             };
 
-            let sortState = { editions: { field: 'default', direction: 'asc' }, dlc: { field: 'default', direction: 'asc' } };
-            let filterState = { editions: '', dlc: '' };
+            let sortState = {
+                editions: {
+                    field: 'default',
+                    direction: 'asc'
+                },
+                dlc: {
+                    field: 'default',
+                    direction: 'asc'
+                }
+            };
+            let filterState = {
+                editions: '',
+                dlc: ''
+            };
 
             const createListHTML = (items) => {
                 if (items.length === 0) return '<li>Нет данных</li>';
@@ -2308,7 +2655,10 @@
             };
 
             const sortList = (list, state) => {
-                const { field, direction } = state;
+                const {
+                    field,
+                    direction
+                } = state;
                 const dir = direction === 'asc' ? 1 : -1;
                 list.sort((a, b) => {
                     if (field === 'default') return (a.defaultOrder - b.defaultOrder) * dir;
@@ -2351,7 +2701,11 @@
 
             const handleSortClick = (type, field) => {
                 const state = sortState[type];
-                const defaultDirections = { name: 'asc', price: 'asc', default: 'asc' };
+                const defaultDirections = {
+                    name: 'asc',
+                    price: 'asc',
+                    default: 'asc'
+                };
                 if (state.field === field) {
                     state.direction = state.direction === 'asc' ? 'desc' : 'asc';
                 } else {
@@ -2419,13 +2773,24 @@
             };
 
             document.getElementById('fmEditQuerySaveBtn').onclick = saveAndClose;
-            input.onkeydown = (e) => { if (e.key === 'Enter') saveAndClose(); };
-            modal.addEventListener('click', (e) => {
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') saveAndClose();
+            };
+
+            let mousedownOnBackdrop = false;
+            modal.addEventListener('mousedown', (e) => {
                 if (e.target === modal) {
+                    mousedownOnBackdrop = true;
+                }
+            });
+            modal.addEventListener('mouseup', (e) => {
+                if (e.target === modal && mousedownOnBackdrop) {
                     removeListeners();
                     modal.remove();
                 }
+                mousedownOnBackdrop = false;
             });
+
             modal.querySelectorAll('.fm-edit-filter-input').forEach(filterInput => {
                 filterInput.addEventListener('input', (e) => {
                     const type = e.target.id.includes('editions') ? 'editions' : 'dlc';
@@ -3554,46 +3919,6 @@
             });
         }
 
-        function fm_showFilterHelpModal() {
-            const modalId = 'fmFilterHelpModal';
-            if (document.getElementById(modalId)) return;
-
-            const helpModal = document.createElement('div');
-            helpModal.id = modalId;
-            Object.assign(helpModal.style, {
-                position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
-                backgroundColor: 'rgba(0,0,0,0.8)', zIndex: '1000007', display: 'flex',
-                alignItems: 'center', justifyContent: 'center'
-            });
-
-            helpModal.innerHTML = `
-                <div class="fm-help-modal-content">
-                    <button class="fm-help-close-btn">&times;</button>
-                    <h4 style="margin-top:0; color:#67c1f5;">Справка по фильтру названий</h4>
-                    <p style="font-size: 16px; margin-bottom: 20px;">Используйте операторы <strong>{и}</strong>, <strong>{или}</strong>, <strong>{не}</strong> для создания сложных запросов.</p>
-                    <ul style="list-style:none; padding-left:0; line-height:1.8; font-size: 15px;">
-                        <li><code style="background:#1a2635; padding:2px 5px; border-radius:3px;">Witcher 3{и}Deluxe</code><br><span style="color:#8f98a0; font-size:14px;">Найдет товары, содержащие и "Witcher 3", и "Deluxe".</span></li>
-                        <li style="margin-top:15px;"><code style="background:#1a2635; padding:2px 5px; border-radius:3px;">Witcher{или}Ведьмак</code><br><span style="color:#8f98a0; font-size:14px;">Найдет товары, содержащие "Witcher" или "Ведьмак".</span></li>
-                        <li style="margin-top:15px;"><code style="background:#1a2635; padding:2px 5px; border-radius:3px;">Witcher 3{не}GOTY</code><br><span style="color:#8f98a0; font-size:14px;">Найдет "Witcher 3", но исключит из результатов те, что содержат "GOTY".</span></li>
-                        <li style="margin-top:15px;"><code style="background:#1a2635; padding:2px 5px; border-radius:3px;">Deluxe{и}Gold{не}Standard{или}Ultimate</code><br><span style="color:#8f98a0; font-size:14px;">Найдены будут товары, которые: (содержат "Deluxe" И "Gold" И НЕ содержат "Standard") ИЛИ (содержат "Ultimate").</span></li>
-                    </ul>
-                    <p style="font-size:14px; color:#8f98a0; margin-top:25px; border-top: 1px solid #3a4f6a; padding-top: 15px;">Операторы не чувствительны к регистру.</p>
-                </div>
-            `;
-
-            document.body.appendChild(helpModal);
-
-            helpModal.addEventListener('click', (event) => {
-                if (event.target === helpModal) {
-                    helpModal.remove();
-                }
-            });
-
-            helpModal.querySelector('.fm-help-close-btn').addEventListener('click', () => {
-                helpModal.remove();
-            });
-        }
-
         function fm_renderResults() {
             if (!fm_resultsDiv) return;
             fm_resultsDiv.innerHTML = '';
@@ -3723,6 +4048,12 @@
                 link.appendChild(buyButtonDiv);
                 itemDiv.appendChild(link);
                 fragment.appendChild(itemDiv);
+
+                titleDiv.addEventListener('contextmenu', fm_showCustomContextMenu);
+                const sellerLink = itemDiv.querySelector('.fm-seller-link');
+                if (sellerLink) {
+                    sellerLink.addEventListener('contextmenu', fm_showCustomContextMenu);
+                }
             });
             fm_resultsDiv.appendChild(fragment);
             fm_applyFilters();
