@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ultimate Game Finder
 // @namespace    https://www.zoneofgames.ru/
-// @version      1.1.2
+// @version      1.1.2.1
 // @description  Ищет по выделенному тексту: информацию об игре в Steam, русификаторы на ZOG и цены в магазинах
 // @author       0wn3df1x
 // @license      MIT
@@ -45,6 +45,7 @@
 // @connect      gamazavr.ru
 // @connect      gameray.ru
 // @connect      shop.buka.ru
+// @connect      static.buka.ru
 // @connect      upload.wikimedia.org
 // @connect      keysforgamers.com
 // @connect      api4.ggsel.com
@@ -58,7 +59,7 @@
 // @connect      graph.digiseller.ru
 // @connect      steamcdn-a.akamaihd.net
 // @connect      cdn.jsdelivr.net
-// @connect      img.ggsel.
+// @connect      img.ggsel.ru
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
 // @grant        GM_registerMenuCommand
@@ -69,6 +70,8 @@
 // @grant        GM_deleteValue
 // @grant        unsafeWindow
 // @require      https://code.jquery.com/jquery-3.6.0.min.js
+// @downloadURL https://update.greasyfork.org/scripts/543449/Ultimate%20Game%20Finder.user.js
+// @updateURL https://update.greasyfork.org/scripts/543449/Ultimate%20Game%20Finder.meta.js
 // ==/UserScript==
 
 (function() {
