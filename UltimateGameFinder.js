@@ -74,8 +74,6 @@
 // @grant        GM_deleteValue
 // @grant        unsafeWindow
 // @require      https://code.jquery.com/jquery-3.6.0.min.js
-// @downloadURL https://update.greasyfork.org/scripts/543449/Ultimate%20Game%20Finder.user.js
-// @updateURL https://update.greasyfork.org/scripts/543449/Ultimate%20Game%20Finder.meta.js
 // ==/UserScript==
 
 (function() {
