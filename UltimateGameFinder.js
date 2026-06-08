@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ultimate Game Finder
 // @namespace    https://www.zoneofgames.ru/
-// @version      1.1.2.1
+// @version      1.1.2.2
 // @description  Ищет по выделенному тексту: информацию об игре в Steam, русификаторы на ZOG и цены в магазинах
 // @author       0wn3df1x
 // @license      MIT
@@ -58,8 +58,12 @@
 // @connect      storage.yandexcloud.net
 // @connect      graph.digiseller.ru
 // @connect      steamcdn-a.akamaihd.net
+// @connect      api-public-gaming.eco.rt.ru
+// @connect      igrovoy.rt.ru
 // @connect      cdn.jsdelivr.net
 // @connect      img.ggsel.ru
+// @connect      backend.gamershub.ru
+// @connect      backoffice.gamershub.ru
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
 // @grant        GM_registerMenuCommand
@@ -1984,9 +1988,14 @@
                 .findMasterItem a { text-decoration: none; color: inherit; display: flex; flex-direction: column; height: 100%; }
                 .fm-card-image-wrapper {
                     position: relative; width: 100%; aspect-ratio: 16 / 9;
-                    margin-bottom: 12px; background-color: #111; border-radius: 3px;
-                    overflow: hidden; display: flex; align-items: center;
+                    margin-bottom: 12px; background: linear-gradient(90deg, #111 25%, #1a1a1a 50%, #111 75%);
+                    background-size: 200% 100%; animation: fmImageLoading 1.5s infinite linear;
+                    border-radius: 3px; overflow: hidden; display: flex; align-items: center;
                     justify-content: center; border: 1px solid #333941;
+                }
+                @keyframes fmImageLoading {
+                    0% { background-position: 200% 0; }
+                    100% { background-position: -200% 0; }
                 }
                 .fm-card-image-wrapper img {
                     display: block; max-width: 100%; max-height: 100%;
@@ -3815,7 +3824,7 @@
 
                 if (!shouldHide && keywords.length > 0) {
                     let textToSearch = itemTitle;
-                    if (itemData.storeId === 'platimarket' && itemData.sellerName) {
+                    if (itemData.sellerName) {
                         textToSearch += ' ' + itemData.sellerName.toLowerCase();
                     }
                     if (keywords.some(keyword => textToSearch.includes(keyword))) {
@@ -3962,10 +3971,21 @@
                 img.src = imgSrc;
                 img.dataset.originalSrc = imgSrc;
 
+                img.onload = function() {
+                    if (this.parentElement) {
+                        this.parentElement.style.background = '#111';
+                        this.parentElement.style.animation = 'none';
+                    }
+                };
+
                 img.onerror = function() {
                     if (!this.dataset.blobTried) {
                         this.dataset.blobTried = 'true';
                         loadImageAsBlob(this, this.dataset.originalSrc);
+                    }
+                    if (this.parentElement) {
+                        this.parentElement.style.background = '#111';
+                        this.parentElement.style.animation = 'none';
                     }
                 };
 
@@ -4019,30 +4039,33 @@
                 storeDiv.textContent = item.storeName || 'Неизвестный магазин';
                 storeDiv.title = `Магазин: ${item.storeName}`;
                 storeInfoContainer.appendChild(storeDiv);
-                if ((item.storeId === 'platimarket' || item.storeId === 'ggsel') && item.sellerId && item.sellerName) {
-                    const sellerLink = document.createElement('a');
+                if (item.storeId === 'platimarket' && item.sellerId && item.sellerName) {
+                    const sellerLink = document.createElement('span');
                     sellerLink.className = 'fm-seller-link';
                     sellerLink.textContent = `Продавец: ${item.sellerName}`;
                     sellerLink.title = `Перейти к продавцу: ${item.sellerName}`;
                     try {
-                        if (item.storeId === 'platimarket') {
-                            const safeSellerName = encodeURIComponent(item.sellerName.replace(/[^a-zA-Z0-9_\-.~]/g, '-')).replace(/%2F/g, '/');
-                            sellerLink.href = `https://plati.market/seller/${safeSellerName}/${item.sellerId}`;
-                        } else {
-                            sellerLink.href = `https://ggsel.net/sellers/${item.sellerId}`;
-                        }
-                        sellerLink.target = '_blank';
-                        sellerLink.rel = 'noopener noreferrer nofollow';
+                        const safeSellerName = encodeURIComponent(item.sellerName.replace(/[^a-zA-Z0-9_\-.~]/g, '-')).replace(/%2F/g, '/');
                         sellerLink.onclick = (e) => {
+                            e.preventDefault();
                             e.stopPropagation();
+                            window.open(`https://plati.market/seller/${safeSellerName}/${item.sellerId}`, '_blank');
                         };
                         storeInfoContainer.appendChild(sellerLink);
                     } catch (e) {
-                        const sellerText = document.createElement('div');
-                        sellerText.className = 'fm-seller-link no-link';
-                        sellerText.textContent = `Продавец: ${item.sellerName}`;
-                        storeInfoContainer.appendChild(sellerText);
+                        const sellerText = document.createElement('div'); sellerText.className = 'fm-seller-link no-link'; sellerText.textContent = `Продавец: ${item.sellerName}`; storeInfoContainer.appendChild(sellerText);
                     }
+                } else if (item.storeId === 'ggsel' && item.sellerId && item.sellerName) {
+                    const sellerLink = document.createElement('span');
+                    sellerLink.className = 'fm-seller-link';
+                    sellerLink.textContent = `Продавец: ${item.sellerName}`;
+                    sellerLink.title = `Перейти к продавцу: ${item.sellerName}`;
+                    sellerLink.onclick = (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.open(`https://ggsel.net/sellers/${item.sellerId}`, '_blank');
+                    };
+                    storeInfoContainer.appendChild(sellerLink);
                 }
                 link.appendChild(storeInfoContainer);
                 const buyButtonDiv = document.createElement('div');
@@ -4258,7 +4281,7 @@
                 id: 'steambuy',
                 name: 'SteamBuy',
                 baseUrl: 'https://steambuy.com',
-                searchUrlTemplate: 'https://steambuy.com/ajax/_get.php?a=search&q={query}',
+                searchUrlTemplate: 'https://steambuy.com/sb/api/catalog/live?a=search&q={query}',
                 isEnabled: true,
                 fetch: async function(query) {
                     const searchUrl = this.searchUrlTemplate.replace('{query}', encodeURIComponent(query));
@@ -4277,14 +4300,10 @@
                                     const data = response.response;
                                     if (data.status === 'success' && typeof data.html === 'string') {
                                         resolve(this.parseHtml(data.html, this));
-                                    } else if (data.status === 'false' && data.message && data.message.includes("ничего не найдено")) {
-                                        resolve([]);
-                                    } else if (data.status === 'empty') {
-                                        resolve([]);
-                                    } else if (data.status === 'success' && !data.html) {
+                                    } else if (data.status === 'false' || data.status === 'empty' || !data.html) {
                                         resolve([]);
                                     } else {
-                                        reject(new Error(`API вернул неожиданный ответ: Статус ${data.status}, Сообщение: ${data.message || 'Нет сообщения'}`));
+                                        reject(new Error(`API вернул неожиданный ответ: Статус ${data.status}`));
                                     }
                                 } else {
                                     reject(new Error(`HTTP статус ${response.status}`));
@@ -4344,7 +4363,7 @@
                                     isAvailable: true
                                 };
                                 results.push(fm_calculateMissingValues(data));
-                            } else {}
+                            }
                         } catch (e) {
                             fm_logError(storeModule.name, 'Ошибка парсинга элемента из AJAX HTML', e);
                         }
@@ -4618,6 +4637,11 @@
                         GM_xmlhttpRequest({
                             method: "GET",
                             url: searchUrl,
+                            headers: {
+                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                                "Referer": "https://gamersbase.store/"
+                            },
                             timeout: FM_REQUEST_TIMEOUT_MS,
                             onload: (response) => {
                                 if (response.status >= 200 && response.status < 400) {
@@ -4640,7 +4664,6 @@
                     await fm_fetchExchangeRates('usd').catch(e => fm_logError(storeModule.name, "Не удалось загрузить курсы USD", e));
                     await fm_fetchExchangeRates('kzt').catch(e => fm_logError(storeModule.name, "Не удалось загрузить курсы KZT", e));
 
-
                     for (const item of items) {
                         try {
                             const linkElement = item.querySelector('a.cover-holder');
@@ -4654,6 +4677,7 @@
                             const productName = productData.name;
                             const productUrlRaw = linkElement?.getAttribute('href');
                             const imageUrl = item.querySelector('.image img')?.getAttribute('src');
+
                             const currentPrice = fm_parsePrice(productData.priceData.actualPriceFormatted);
                             const originalPrice = fm_parsePrice(productData.priceData.standardPriceFormatted);
                             const discountPercent = productData.priceData.discountPercent || 0;
@@ -4662,13 +4686,16 @@
 
                             if (productName && productUrlRaw && currentPrice !== null && isAvailable) {
                                 let fullOriginalUrl = productUrlRaw.startsWith('/') ? storeModule.baseUrl + productUrlRaw : productUrlRaw;
-                                const urlObject = new URL(fullOriginalUrl);
-                                if (urlObject.pathname.startsWith('/ru/')) {
-                                    urlObject.pathname = urlObject.pathname.substring(3);
+
+                                try {
+                                    const urlObject = new URL(fullOriginalUrl);
                                     fullOriginalUrl = urlObject.toString();
-                                }
-                                const referralPrefix = 'https://lsuix.com/g/nzstwno2sac1442ace4bb0de1ddd64/?erid=2bL9aMPo2e49hMef4pfVDVxtYh&ulp=';
-                                const productUrl = referralPrefix + encodeURIComponent(fullOriginalUrl);
+                                } catch(e) {}
+
+                                // const referralPrefix = 'https://lsuix.com/g/nzstwno2sac1442ace4bb0de1ddd64/?erid=2bL9aMPo2e49hMef4pfVDVxtYh&ulp=';
+                                // const productUrl = referralPrefix + encodeURIComponent(fullOriginalUrl);
+
+                                const productUrl = fullOriginalUrl;
 
                                 let data = {
                                     storeId: storeModule.id,
@@ -4686,12 +4713,12 @@
                                 };
 
                                 const processedData = await fm_processItemCurrency(data, productData.priceData.actualPriceFormatted);
-                                if (processedData) {
+                                if(processedData) {
                                     results.push(fm_calculateMissingValues(processedData));
                                 }
                             }
                         } catch (e) {
-                            fm_logError(storeModule.name, 'Ошибка парсинга элемента или JSON в data-product', e);
+                            fm_logError(storeModule.name, 'Ошибка парсинга элемента', e);
                         }
                     }
                     return results;
@@ -5135,12 +5162,12 @@
                                 }
                             },
                             onerror: (error) => {
-                                fm_logError(storeModule.name, `Сетевая ошибка для ${url}`, error);
-                                resolve(null);
+                                 fm_logError(storeModule.name, `Сетевая ошибка для ${url}`, error);
+                                 resolve(null);
                             },
                             ontimeout: () => {
-                                fm_logError(storeModule.name, `Таймаут запроса для ${url}`);
-                                resolve(null);
+                                 fm_logError(storeModule.name, `Таймаут запроса для ${url}`);
+                                 resolve(null);
                             }
                         });
                     });
@@ -5155,18 +5182,18 @@
                     if (gamesResult.status === 'fulfilled' && gamesResult.value?.data) {
                         try {
                             finalResults = finalResults.concat(storeModule.parseGamesApi(gamesResult.value.data, storeModule));
-                        } catch (e) {
-                            fm_logError(storeModule.name, 'Ошибка парсинга ответа Games API', e);
+                        } catch(e) {
+                             fm_logError(storeModule.name, 'Ошибка парсинга ответа Games API', e);
                         }
-                    } else if (gamesResult.status === 'rejected') {}
+                    }
 
                     if (shopResult.status === 'fulfilled' && shopResult.value?.data) {
-                        try {
+                         try {
                             finalResults = finalResults.concat(storeModule.parseShopApi(shopResult.value.data, storeModule));
-                        } catch (e) {
-                            fm_logError(storeModule.name, 'Ошибка парсинга ответа Shop API', e);
-                        }
-                    } else if (shopResult.status === 'rejected') {}
+                         } catch(e) {
+                             fm_logError(storeModule.name, 'Ошибка парсинга ответа Shop API', e);
+                         }
+                    }
 
                     return finalResults;
                 },
@@ -5175,12 +5202,12 @@
                 parseGamesApi: function(items, storeModule) {
                     const results = [];
                     if (!Array.isArray(items)) {
-                        fm_logError(storeModule.name, 'Games API response data is not an array', items);
-                        return results;
+                         fm_logError(storeModule.name, 'Games API response data is not an array', items);
+                         return results;
                     }
 
-                    const referralBase = "https://yknhc.com/g/lfofiog4lqc1442ace4b294cb5928a/";
-                    const referralParams = "?erid=2bL9aMPo2e49hMef4phUQVF5W8&ulp=";
+                    // const referralBase = "https://yknhc.com/g/lfofiog4lqc1442ace4b294cb5928a/";
+                    // const referralParams = "?erid=2bL9aMPo2e49hMef4phUQVF5W8&ulp=";
 
                     items.forEach(item => {
                         try {
@@ -5196,7 +5223,9 @@
                             }
 
                             const originalProductUrl = `https://steam.kupikod.com/ru-ru/games/${slug}`;
-                            const productUrl = referralBase + referralParams + encodeURIComponent(originalProductUrl);
+
+                            const productUrl = originalProductUrl;
+                            // const productUrl = referralBase + referralParams + encodeURIComponent(originalProductUrl);
 
                             let data = {
                                 storeId: storeModule.id,
@@ -5228,8 +5257,8 @@
                         return results;
                     }
 
-                    const referralBase = "https://yknhc.com/g/lfofiog4lqc1442ace4b294cb5928a/";
-                    const referralParams = "?erid=2bL9aMPo2e49hMef4phUQVF5W8&ulp=";
+                    // const referralBase = "https://yknhc.com/g/lfofiog4lqc1442ace4b294cb5928a/";
+                    // const referralParams = "?erid=2bL9aMPo2e49hMef4phUQVF5W8&ulp=";
 
                     items.forEach(item => {
                         try {
@@ -5241,7 +5270,7 @@
                             const imageUrl = item.picture_url;
 
                             if (!imageUrl || typeof imageUrl !== 'string' || imageUrl.includes('/apps//')) {
-                                return;
+                                 return;
                             }
 
                             if (!productName || !slug || currentPrice === null) {
@@ -5249,14 +5278,16 @@
                             }
 
                             if (storeModule.excludedRegionSuffixes.some(suffix => slug.endsWith(suffix))) {
-                                return;
+                                 return;
                             }
-                            if (storeModule.excludedPlatformKeywords.some(keyword => slug.includes(keyword))) {
-                                return;
+                             if (storeModule.excludedPlatformKeywords.some(keyword => slug.includes(keyword))) {
+                                 return;
                             }
 
                             const originalProductUrl = `${storeModule.baseUrl}/shop/${item.slug}`;
-                            const productUrl = referralBase + referralParams + encodeURIComponent(originalProductUrl);
+
+                            const productUrl = originalProductUrl;
+                            // const productUrl = referralBase + referralParams + encodeURIComponent(originalProductUrl);
 
                             let data = {
                                 storeId: storeModule.id,
@@ -5572,7 +5603,7 @@
                             }
 
                             const fullOriginalUrl = productUrlRaw.startsWith('/') ? storeModule.baseUrl + productUrlRaw : productUrlRaw;
-                            const referralPrefix = 'https://bednari.com/g/momptkjep9c1442ace4b02770293ab/?erid=2bL9aMPo2e49hMef4pgUXYbxvv&ulp=';
+                            const referralPrefix = 'https://heqgr.com/g/6znf8911enc1442ace4b7b456b25e2/?erid=2bL9aMPo2e49hMef4rqy6bZVTY&ulp=';
                             const productUrl = referralPrefix + encodeURIComponent(fullOriginalUrl);
 
                             let data = {
@@ -5602,7 +5633,7 @@
                 id: 'buka',
                 name: 'Buka',
                 baseUrl: 'https://shop.buka.ru',
-                apiUrl: 'https://shop.buka.ru/api/f/v2/search/get-page',
+                apiUrl: 'https://shop.buka.ru/s/f/v3/search/get-page',
                 isEnabled: true,
                 fetch: async function(query) {
                     let allItems = [];
@@ -5615,10 +5646,11 @@
                             pageIndex: currentIndex,
                             filter: {
                                 term: query,
-                                area_id: 100001,
+                                area_id: 100001, // 100001 = "Все"
                                 channel: "WEB"
                             }
                         };
+
                         const requestHeaders = {
                             'Accept': '*/*',
                             'Content-Type': 'application/json'
@@ -5673,45 +5705,57 @@
                 parseApiItem: function(item, storeModule) {
                     try {
                         // --- Фильтрация ---
-                        // 1. Проверяем тип (нужен цифровой, обычно type: 3)
-                        if (item.type !== 3) return null;
-
-                        // 2. Проверяем платформу (нужен PC)
                         const platformFilter = item.filters?.find(f => f.field === 'platform');
                         const isPC = platformFilter?.values?.some(v => v.title === 'PC');
+
                         if (!isPC) return null;
 
-                        // 3. Проверяем статус продажи (доступен или предзаказ)
+                        // 2. Проверяем статус продажи
                         const saleState = item.saleState;
                         if (saleState !== 'available' && saleState !== 'pre-order') {
                             return null;
                         }
 
+                        // --- Сбор данных ---
                         const productName = item.title?.trim();
                         const productUrlRaw = item.alias ? `/item/${item.alias}` : null;
-                        const imageUrl = item.img;
 
-                        const currentPrice = item.price?.actual ? fm_parsePrice(item.price.actual) : null;
-                        const originalPrice = item.price?.old ? fm_parsePrice(item.price.old) : (currentPrice !== null ? currentPrice : null);
-                        const discountPercent = item.price?.discount ? parseFloat(item.price.discount) : 0;
+                        let imageUrl = null;
+                        if (item.images?.main?.resized) {
+                            imageUrl = item.images.main.resized['296x'] || item.images.main.resized['160x'] || item.images.main.resized.x;
+                        } else if (item.images?.main?.maxSize) {
+                            imageUrl = item.images.main.maxSize;
+                        }
+
+                        const priceObj = item.price;
+                        if (!priceObj) return null;
+
+                        const currentPrice = typeof priceObj.actual === 'number' ? priceObj.actual : fm_parsePrice(priceObj.actual);
+
+                        let originalPrice = typeof priceObj.old === 'number' ? priceObj.old : fm_parsePrice(priceObj.old);
+                        if (originalPrice === 0) originalPrice = null;
+
+                        // Скидка
+                        let discountPercent = priceObj.discount;
+                        if (!discountPercent && originalPrice && currentPrice < originalPrice) {
+                            discountPercent = Math.round((1 - currentPrice / originalPrice) * 100);
+                        }
 
                         if (!productName || !productUrlRaw || !imageUrl || currentPrice === null) {
-                            fm_logError(storeModule.name, 'Недостаточно данных в API ответе для элемента', item);
                             return null;
                         }
 
                         const fullProductUrl = storeModule.baseUrl + productUrlRaw;
-                        const productUrlWithRef = fullProductUrl;
 
                         let data = {
                             storeId: storeModule.id,
                             storeName: storeModule.name,
                             storeUrl: storeModule.baseUrl,
                             productName: productName,
-                            productUrl: productUrlWithRef,
+                            productUrl: fullProductUrl,
                             imageUrl: imageUrl,
                             currentPrice: currentPrice,
-                            originalPrice: originalPrice === currentPrice ? null : originalPrice,
+                            originalPrice: originalPrice,
                             discountPercent: discountPercent > 0 ? discountPercent : null,
                             discountAmount: null,
                             currency: 'RUB',
@@ -5725,153 +5769,150 @@
                         return null;
                     }
                 }
-            },
+            }, // --- Конец модуля Buka ---
 
             { // --- Модуль GGSEL ---
                 id: 'ggsel',
                 name: 'GGSEL',
                 baseUrl: 'https://ggsel.net',
-                apiUrl: 'https://api4.ggsel.com/elastic/goods/query',
                 isEnabled: true,
                 fetch: async function(query) {
-                    let allItems = [];
-                    let searchAfter = [];
-                    const limit = 60;
-                    let hasMore = true;
-                    let fetchedCount = 0;
-                    const maxFetches = 5;
-                    let fetchAttempts = 0;
                     const storeModule = this;
+                    const searchUrl = `${this.baseUrl}/search/${encodeURIComponent(query)}`;
 
-                    async function fetchGGSELPage(currentIndex) {
-                        fetchAttempts++;
-                        const requestPayload = {
-                            search_term: query,
-                            limit: limit,
-                            search_after: searchAfter,
-                            is_preorders: false,
-                            with_filters: true,
-                            with_categories: false,
-                            sort: "sortByPriceUp",
-                            content_type_ids: [48, 2],
-                            with_forbidden: false,
-                            min_price: "",
-                            max_price: "",
-                            currency: "wmr",
-                            lang: "ru",
-                            platforms: ["Steam"]
-                        };
-                        const requestHeaders = {
-                            'Accept': 'application/json, text/plain, */*',
-                            'Content-Type': 'application/json'
-                        };
-
-                        try {
-                            const response = await new Promise((resolve, reject) => {
-                                GM_xmlhttpRequest({
-                                    method: "POST",
-                                    url: storeModule.apiUrl,
-                                    headers: requestHeaders,
-                                    data: JSON.stringify(requestPayload),
-                                    responseType: 'json',
-                                    timeout: FM_REQUEST_TIMEOUT_MS,
-                                    onload: resolve,
-                                    onerror: reject,
-                                    ontimeout: () => reject(new Error(`Таймаут запроса (pageIndex: ${currentIndex})`)),
-                                });
-                            });
-
-                            if (response.status >= 200 && response.status < 400 && response.response?.data) {
-                                const data = response.response.data;
-                                if (data.items && Array.isArray(data.items)) {
-                                    const processedItems = data.items
-                                        .map(item => storeModule.parseApiItem(item, storeModule))
-                                        .filter(item => item !== null);
-
-                                    allItems = allItems.concat(processedItems);
-                                    fetchedCount += data.items.length;
-
-                                    if (data.items.length < limit || !data.last_sort || fetchedCount >= (data.total ?? fetchedCount)) {
-                                        hasMore = false;
-                                    } else {
-                                        searchAfter = data.last_sort;
-                                    }
+                    return new Promise((resolve, reject) => {
+                        GM_xmlhttpRequest({
+                            method: "GET",
+                            url: searchUrl,
+                            headers: {
+                                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                                'User-Agent': navigator.userAgent
+                            },
+                            timeout: FM_REQUEST_TIMEOUT_MS,
+                            onload: (response) => {
+                                if (response.status >= 200 && response.status < 400) {
+                                    resolve(this.parseHtml(response.responseText, storeModule));
                                 } else {
-                                    hasMore = false;
+                                    reject(new Error(`HTTP статус ${response.status}`));
                                 }
-                            } else {
-                                throw new Error(`HTTP статус ${response.status} (pageIndex: ${currentIndex})`);
-                            }
-                        } catch (error) {
-                            fm_logError(storeModule.name, `Ошибка загрузки страницы ${currentIndex}: ${error.message}`, error);
-                            hasMore = false;
-                        }
-
-                        if (hasMore && fetchAttempts < maxFetches) {
-                            await new Promise(res => setTimeout(res, 150));
-                            await fetchGGSELPage(currentIndex + 1);
-                        }
-                    }
-
-                    await fetchGGSELPage(0);
-
-                    if (fetchAttempts >= maxFetches && hasMore) {
-                        fm_logError(storeModule.name, `Достигнут лимит запросов пагинации (${maxFetches}). Возможно, показаны не все результаты.`);
-                    }
-
-                    return allItems;
+                            },
+                            onerror: (error) => reject(new Error('Сетевая ошибка')),
+                            ontimeout: () => reject(new Error('Таймаут запроса'))
+                        });
+                    });
                 },
-
-                parseApiItem: function(item, storeModule) {
+                parseHtml: function(htmlString, storeModule) {
+                    const results = [];
                     try {
-                        if (item.forbidden_type !== 0 || item.hidden_from_search || item.hidden_from_parents) {
-                            return null;
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(htmlString, 'text/html');
+
+                        const regex = /"data":(\[\{"id_goods".*?\}\]),"total":\d+/;
+                        const match = htmlString.match(regex);
+
+                        if (match && match[1]) {
+                            const jsonItems = JSON.parse(match[1]);
+
+                            jsonItems.forEach(item => {
+                                if (item.forbidden_type !== 0 || item.hidden_from_search || item.hidden_from_parents) return;
+                                if (![1, 2, 31, 48].includes(item.content_type_id)) return;
+
+                                const productName = item.name?.trim();
+                                const productUrlRaw = item.url ? `/catalog/product/${item.url}` : null;
+                                const productUrl = productUrlRaw ? `${storeModule.baseUrl}${productUrlRaw}?ai=234029` : null;
+
+                                const currentPrice = item.price_wmr ? fm_parsePrice(item.price_wmr) : null;
+                                let originalPrice = null;
+                                if (item.category_discount && fm_parsePrice(item.category_discount) > currentPrice) {
+                                    originalPrice = fm_parsePrice(item.category_discount);
+                                }
+
+                                if (!productName || currentPrice === null || !productUrl) return;
+
+                                let imageUrl = null;
+                                if (item.id_goods) {
+                                    const domLink = doc.querySelector(`a[href$="${item.id_goods}"]`);
+                                    if (domLink) {
+                                        const domCard = domLink.closest('[data-testid="card"]');
+                                        if (domCard) {
+                                            const imgEl = domCard.querySelector('[data-testid="card-image"]');
+                                            if (imgEl && imgEl.getAttribute('src')) {
+                                                imageUrl = imgEl.getAttribute('src');
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (!imageUrl) {
+                                    if (item.image_url) imageUrl = item.image_url;
+                                    else if (item.images) imageUrl = `https://img.ggsel.net/${item.id_goods}/original/250x250/${item.images}`;
+                                    else if (item.icon) imageUrl = item.icon;
+                                    else imageUrl = 'https://i.imgur.com/yF0hawg.jpeg';
+                                }
+
+                                let data = {
+                                    storeId: storeModule.id,
+                                    storeName: storeModule.name,
+                                    storeUrl: storeModule.baseUrl,
+                                    productName: productName,
+                                    productUrl: productUrl,
+                                    imageUrl: imageUrl,
+                                    currentPrice: currentPrice,
+                                    originalPrice: originalPrice,
+                                    discountPercent: null,
+                                    discountAmount: null,
+                                    currency: 'RUB',
+                                    isAvailable: item.is_active === true,
+                                    sellerId: item.id_seller,
+                                    sellerName: item.seller_name
+                                };
+
+                                results.push(fm_calculateMissingValues(data));
+                            });
                         }
-                        if (item.content_type_id !== 48 && item.content_type_id !== 2) {
-                            return null;
+
+                        if (results.length === 0) {
+                            const domItems = doc.querySelectorAll('[data-testid="card"]');
+                            domItems.forEach(item => {
+                                const linkEl = item.querySelector('[data-testid="card-link"]');
+                                const imgEl = item.querySelector('[data-testid="card-image"]');
+                                const priceEl = item.querySelector('[data-test="price"]');
+                                const oldPriceEl = item.querySelector('[class*="oldPrice"]');
+                                const nameEl = item.querySelector('[class*="description"] span');
+
+                                const productName = nameEl ? nameEl.textContent.trim() : (imgEl ? imgEl.getAttribute('alt') : null);
+                                const productUrlRaw = linkEl ? linkEl.getAttribute('href') : null;
+                                const imageUrl = imgEl ? imgEl.getAttribute('src') : null;
+
+                                const currentPrice = priceEl ? fm_parsePrice(priceEl.textContent) : null;
+                                const originalPrice = oldPriceEl ? fm_parsePrice(oldPriceEl.textContent) : null;
+
+                                if (!productName || currentPrice === null || !productUrlRaw) return;
+
+                                let data = {
+                                    storeId: storeModule.id,
+                                    storeName: storeModule.name,
+                                    storeUrl: storeModule.baseUrl,
+                                    productName: productName,
+                                    productUrl: `${storeModule.baseUrl}${productUrlRaw}?ai=234029`,
+                                    imageUrl: imageUrl || 'https://i.imgur.com/yF0hawg.jpeg',
+                                    currentPrice: currentPrice,
+                                    originalPrice: (originalPrice && originalPrice > currentPrice) ? originalPrice : null,
+                                    discountPercent: null,
+                                    discountAmount: null,
+                                    currency: 'RUB',
+                                    isAvailable: true,
+                                    sellerId: null,
+                                    sellerName: null
+                                };
+                                results.push(fm_calculateMissingValues(data));
+                            });
                         }
-
-                        const productName = item.name?.trim();
-                        const productUrlRaw = `${storeModule.baseUrl}/catalog/product/${item.id_goods}`;
-                        const productUrl = `${productUrlRaw}?ai=234029`;
-
-                        const imageUrl = item.images ? `https://img.ggsel.ru/${item.id_goods}/original/250x250/${item.images}` : null;
-
-                        const currentPrice = item.price_wmr ? fm_parsePrice(item.price_wmr) : null;
-                        const potentialOriginalPrice = item.category_discount ? fm_parsePrice(item.category_discount) : null;
-                        const originalPrice = (potentialOriginalPrice && currentPrice !== null && potentialOriginalPrice > currentPrice) ? potentialOriginalPrice : null;
-
-                        const sellerId = item.id_seller;
-                        const sellerName = item.seller_name;
-
-                        if (!productName || currentPrice === null || !imageUrl) {
-                            fm_logError(storeModule.name, 'Недостаточно данных в элементе API GGSEL (после проверок)', item);
-                            return null;
-                        }
-
-                        let data = {
-                            storeId: storeModule.id,
-                            storeName: storeModule.name,
-                            storeUrl: storeModule.baseUrl,
-                            productName: productName,
-                            productUrl: productUrl,
-                            imageUrl: imageUrl,
-                            currentPrice: currentPrice,
-                            originalPrice: originalPrice,
-                            discountPercent: null,
-                            discountAmount: null,
-                            currency: 'RUB',
-                            isAvailable: true,
-                            sellerId: sellerId,
-                            sellerName: sellerName
-                        };
-
-                        return fm_calculateMissingValues(data);
 
                     } catch (e) {
-                        fm_logError(storeModule.name, 'Ошибка парсинга элемента API GGSEL', e);
-                        return null;
+                        fm_logError(storeModule.name, 'Ошибка при парсинге GGSEL', e);
                     }
+                    return results;
                 }
             }, // --- Конец модуля GGSEL ---
 
@@ -6100,7 +6141,7 @@
                 id: 'sousbuy',
                 name: 'Sous-Buy',
                 baseUrl: 'https://sous-buy.ru',
-                searchUrlTemplate: 'https://sous-buy.ru/catalog?GameSearch[game]={query}&GameSearch[instock]=1&GameSearch[key]=1',
+                searchUrlTemplate: 'https://sous-buy.ru/catalog?GameSearch[game]={query}&GameSearch[instock]=1&GameSearch[key]=1&GameSearch[platform]=1',
                 isEnabled: true,
                 fetch: async function(query) {
                     const searchUrl = this.searchUrlTemplate.replace('{query}', encodeURIComponent(query));
@@ -6108,6 +6149,10 @@
                         GM_xmlhttpRequest({
                             method: "GET",
                             url: searchUrl,
+                            headers: {
+                                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                                "User-Agent": navigator.userAgent
+                            },
                             timeout: FM_REQUEST_TIMEOUT_MS,
                             onload: (response) => {
                                 if (response.status >= 200 && response.status < 400) {
@@ -6130,7 +6175,7 @@
                     items.forEach(item => {
                         try {
                             const platformElement = item.querySelector('.product-item-platform');
-                            if (platformElement && platformElement.textContent.trim() !== 'Steam') {
+                            if (platformElement && !platformElement.textContent.includes('Steam')) {
                                 return;
                             }
 
@@ -6145,12 +6190,12 @@
                             const originalPrice = oldPriceElement ? fm_parsePrice(oldPriceElement.textContent) : null;
 
                             let imageUrl = null;
-                            const bgStyle = item.style.background;
-                            if (bgStyle && bgStyle.includes('url(')) {
-                                const urlMatch = bgStyle.match(/url\("?(.+?)"?\)/);
-                                if (urlMatch && urlMatch[1]) {
-                                    imageUrl = urlMatch[1];
-                                }
+                            const styleAttr = item.getAttribute('style');
+                            if (styleAttr && styleAttr.includes('--image')) {
+                                 const urlMatch = styleAttr.match(/url\("?(.+?)"?\)/);
+                                 if (urlMatch && urlMatch[1]) {
+                                     imageUrl = urlMatch[1];
+                                 }
                             }
 
                             if (!productName || !productUrlRaw || currentPrice === null) {
@@ -6163,7 +6208,7 @@
                                 storeUrl: storeModule.baseUrl,
                                 productName: productName,
                                 productUrl: productUrlRaw.startsWith('/') ? storeModule.baseUrl + productUrlRaw : productUrlRaw,
-                                imageUrl: imageUrl?.startsWith('/') ? storeModule.baseUrl + imageUrl : imageUrl,
+                                imageUrl: imageUrl && imageUrl.startsWith('/') ? storeModule.baseUrl + imageUrl : imageUrl,
                                 currentPrice: currentPrice,
                                 originalPrice: originalPrice,
                                 discountPercent: null,
@@ -6185,7 +6230,7 @@
                 id: 'igmgg',
                 name: 'IGM.gg',
                 baseUrl: 'https://igm.gg',
-                apiUrl: 'https://igm.gg/api/catalog/list',
+                apiUrl: 'https://igm.gg/api/v2/catalog/list',
                 isEnabled: true,
                 fetch: async function(query) {
                     const storeModule = this;
@@ -6233,30 +6278,44 @@
 
                     items.forEach(item => {
                         try {
-                            const modification = item.modification;
-                            if (!modification || modification.service?.name !== 'Steam') {
-                                return;
-                            }
-
                             const productName = item.name?.trim();
                             const productUrlRaw = item.slug ? `/game/${item.slug}` : null;
                             const imageUrl = item.logo?.file_url;
 
-                            const originalPrice = fm_parsePrice(modification.price);
-                            const discountPercent = parseFloat(modification.discount) || 0;
-
                             let currentPrice = null;
+                            let originalPrice = null;
+                            let discountPercent = 0;
 
-                            if (useSubscriptionPrice) {
-                                if (modification.final_price_with_special_subscription_discount !== null) {
-                                    currentPrice = fm_parsePrice(modification.final_price_with_special_subscription_discount);
-                                } else if (modification.final_price_with_base_subscription_discount !== null) {
-                                    currentPrice = fm_parsePrice(modification.final_price_with_base_subscription_discount);
+                            if (item.modification) {
+                                const mod = item.modification;
+                                originalPrice = fm_parsePrice(mod.price);
+                                discountPercent = parseFloat(mod.discount) || 0;
+
+                                if (useSubscriptionPrice) {
+                                    if (mod.final_price_with_special_subscription_discount !== null) {
+                                        currentPrice = fm_parsePrice(mod.final_price_with_special_subscription_discount);
+                                    } else if (mod.final_price_with_base_subscription_discount !== null) {
+                                        currentPrice = fm_parsePrice(mod.final_price_with_base_subscription_discount);
+                                    }
                                 }
-                            }
+                                if (currentPrice === null) currentPrice = fm_parsePrice(mod.final_price);
 
-                            if (currentPrice === null) {
-                                currentPrice = fm_parsePrice(modification.final_price);
+                            } else if (item.gift) {
+                                const giftInfo = item.gift;
+                                const regionData = giftInfo.regions_price_list?.find(r => r.region === 'RU') || giftInfo.regions_price_list?.[0];
+                                if (regionData) {
+                                    originalPrice = fm_parsePrice(regionData.price);
+                                    discountPercent = parseFloat(regionData.discount) || 0;
+
+                                    if (useSubscriptionPrice) {
+                                        if (regionData.final_price_with_special_subscription_discount !== null) {
+                                            currentPrice = fm_parsePrice(regionData.final_price_with_special_subscription_discount);
+                                        } else if (regionData.final_price_with_base_subscription_discount !== null) {
+                                            currentPrice = fm_parsePrice(regionData.final_price_with_base_subscription_discount);
+                                        }
+                                    }
+                                    if (currentPrice === null) currentPrice = fm_parsePrice(regionData.final_price);
+                                }
                             }
 
                             if (currentPrice === null && originalPrice !== null && discountPercent > 0) {
@@ -6281,12 +6340,10 @@
                                 discountPercent: discountPercent > 0 ? discountPercent : null,
                                 discountAmount: null,
                                 currency: 'RUB',
-                                isAvailable: item.modification.available_count > 0,
+                                isAvailable: true,
                             };
 
-                            if (data.isAvailable) {
-                                results.push(fm_calculateMissingValues(data));
-                            }
+                            results.push(fm_calculateMissingValues(data));
 
                         } catch (e) {
                             fm_logError(storeModule.name, 'Ошибка парсинга элемента API', e);
@@ -6294,7 +6351,224 @@
                     });
                     return results;
                 }
-            } // --- Конец модуля IGM.GG ---
+            }, // --- Конец модуля IGM.GG ---
+
+            { // --- Модуль Ростелеком (Игровой) ---
+                id: 'rostelecom',
+                name: 'Ростелеком',
+                baseUrl: 'https://igrovoy.rt.ru',
+                searchUrlTemplate: 'https://api-public-gaming.eco.rt.ru/v1/catalog?catalog=game-pc&platforms=1&sort=release_desc&search={query}&limit=20&offset=0',
+                isEnabled: true,
+                fetch: async function(query) {
+                    const searchUrl = this.searchUrlTemplate.replace('{query}', encodeURIComponent(query));
+                    return new Promise((resolve, reject) => {
+                        GM_xmlhttpRequest({
+                            method: "GET",
+                            url: searchUrl,
+                            headers: {
+                                "accept": "*/*",
+                                "content-type": "application/json;charset=utf-8"
+                            },
+                            timeout: FM_REQUEST_TIMEOUT_MS,
+                            onload: async (response) => {
+                                if (response.status >= 200 && response.status < 400) {
+                                    try {
+                                        const json = JSON.parse(response.responseText);
+                                        resolve(await this.parseJson(json, this));
+                                    } catch (e) {
+                                        reject(new Error('Ошибка обработки JSON'));
+                                    }
+                                } else {
+                                    reject(new Error(`HTTP статус ${response.status}`));
+                                }
+                            },
+                            onerror: (error) => reject(new Error('Сетевая ошибка')),
+                            ontimeout: () => reject(new Error('Таймаут запроса'))
+                        });
+                    });
+                },
+                parseJson: async function(json, storeModule) {
+                    const results = [];
+                    const products = json.products || [];
+
+                    await fm_fetchExchangeRates('usd').catch(e => fm_logError(storeModule.name, "Не удалось загрузить курсы", e));
+
+                    for (const item of products) {
+                        try {
+                            // 1. Название
+                            const productName = item.title;
+
+                            // 2. Цены (приходят в копейках, делим на 100)
+                            const priceData = item.prices && item.prices[0];
+                            if (!priceData) continue; // Если цены нет, пропускаем
+
+                            const currentPrice = priceData.price / 100;
+                            let originalPrice = priceData.full_price / 100;
+
+                            if (currentPrice === originalPrice) {
+                                originalPrice = null;
+                            }
+
+                            // 3. Ссылка на товар
+                            const productSlug = item.slug;
+                            const cardId = item.card_id;
+                            const productUrl = `${storeModule.baseUrl}/catalog/game-pc/${cardId}/${productSlug}`;
+
+                            // 4. Картинка
+                            let imageUrl = null;
+                            if (item.images && Array.isArray(item.images)) {
+                                const preferredBreakpoints = ['768', '1024', '1280', '1440', '360'];
+                                let foundImgObj = null;
+
+                                for (const bp of preferredBreakpoints) {
+                                    const group = item.images.find(g => g.breakpoint === bp);
+                                    if (group && group.images) {
+                                        const img = group.images.find(i => i.type === 'product_card');
+                                        if (img) {
+                                            foundImgObj = img;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (!foundImgObj) {
+                                    for (const group of item.images) {
+                                        if (group.images) {
+                                            const img = group.images.find(i => i.type === 'product_card');
+                                            if (img) {
+                                                foundImgObj = img;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (foundImgObj) imageUrl = foundImgObj.url;
+                            }
+
+                            // 5. Скидка
+                            let discountPercent = null;
+                            if (priceData.discount && priceData.discount.value) {
+                                discountPercent = priceData.discount.value;
+                            } else if (originalPrice && currentPrice < originalPrice) {
+                                 discountPercent = Math.round((1 - currentPrice / originalPrice) * 100);
+                            }
+
+                            let data = {
+                                storeId: storeModule.id,
+                                storeName: storeModule.name,
+                                storeUrl: storeModule.baseUrl,
+                                productName: productName,
+                                productUrl: productUrl,
+                                imageUrl: imageUrl,
+                                currentPrice: currentPrice,
+                                originalPrice: originalPrice,
+                                discountPercent: discountPercent,
+                                discountAmount: null,
+                                currency: 'RUB',
+                                isAvailable: item.status === 'active'
+                            };
+
+                            const processedData = await fm_processItemCurrency(data, currentPrice.toString());
+                            if (processedData) {
+                                results.push(fm_calculateMissingValues(processedData));
+                            }
+
+                        } catch (e) {
+                            fm_logError(storeModule.name, 'Ошибка парсинга JSON элемента', e);
+                        }
+                    }
+                    return results;
+                }
+            }, // --- Конец модуля Ростелеком ---
+
+            { // --- Модуль Gamers Hub ---
+                id: 'gamershub',
+                name: 'Gamers Hub',
+                baseUrl: 'https://gamershub.ru',
+                searchUrlTemplate: 'https://backend.gamershub.ru/api/Catalog/Groups/Goods?userId=&sort=1&page=1&pageSize=25&filter={query}&groupIds=&parameters=%D0%A1%D0%B5%D1%80%D0%B2%D0%B8%D1%81%20%D0%B0%D0%BA%D1%82%D0%B8%D0%B2%D0%B0%D1%86%D0%B8%D0%B8:Steam',
+                isEnabled: true,
+                fetch: async function(query) {
+                    const searchUrl = this.searchUrlTemplate.replace('{query}', encodeURIComponent(query));
+                    return new Promise((resolve, reject) => {
+                        GM_xmlhttpRequest({
+                            method: "GET",
+                            url: searchUrl,
+                            headers: {
+                                "Accept": "application/json",
+                                "User-Agent": navigator.userAgent
+                            },
+                            timeout: FM_REQUEST_TIMEOUT_MS,
+                            onload: async (response) => {
+                                if (response.status >= 200 && response.status < 400) {
+                                    try {
+                                        const json = JSON.parse(response.responseText);
+                                        resolve(await this.parseJson(json, this));
+                                    } catch (e) {
+                                        reject(new Error('Ошибка обработки JSON'));
+                                    }
+                                } else {
+                                    reject(new Error(`HTTP статус ${response.status}`));
+                                }
+                            },
+                            onerror: (error) => reject(new Error('Сетевая ошибка')),
+                            ontimeout: () => reject(new Error('Таймаут запроса'))
+                        });
+                    });
+                },
+                parseJson: async function(json, storeModule) {
+                    const results = [];
+                    const products = json.data || [];
+
+                    await fm_fetchExchangeRates('usd').catch(e => fm_logError(storeModule.name, "Не удалось загрузить курсы", e));
+
+                    for (const item of products) {
+                        try {
+                            const productName = item.name?.trim();
+
+                            const currentPrice = parseFloat(item.newPrice);
+                            let originalPrice = parseFloat(item.oldPrice);
+
+                            if (isNaN(currentPrice)) continue;
+
+                            if (isNaN(originalPrice) || originalPrice <= currentPrice) {
+                                originalPrice = null;
+                            }
+
+                            const discountPercent = item.discount ? parseInt(item.discount, 10) : null;
+                            const imageUrl = item.image || (item.carouselImages && item.carouselImages[0]) || null;
+
+                            const productUrl = storeModule.baseUrl + '/product/' + item.id;
+
+                            if (!productName) continue;
+
+                            let data = {
+                                storeId: storeModule.id,
+                                storeName: storeModule.name,
+                                storeUrl: storeModule.baseUrl,
+                                productName: productName,
+                                productUrl: productUrl,
+                                imageUrl: imageUrl,
+                                currentPrice: currentPrice,
+                                originalPrice: originalPrice,
+                                discountPercent: discountPercent > 0 ? discountPercent : null,
+                                discountAmount: null,
+                                currency: item.currency || 'RUB',
+                                isAvailable: true
+                            };
+
+                            const processedData = await fm_processItemCurrency(data, currentPrice.toString());
+                            if (processedData) {
+                                results.push(fm_calculateMissingValues(processedData));
+                            }
+
+                        } catch (e) {
+                            fm_logError(storeModule.name, 'Ошибка парсинга JSON элемента', e);
+                        }
+                    }
+                    return results;
+                }
+            } // --- Конец модуля Gamers Hub ---
 
 
             // ... для других магазинов
