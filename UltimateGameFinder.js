@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ultimate Game Finder
 // @namespace    https://www.zoneofgames.ru/
-// @version      1.1.2.2
+// @version      1.1.2.3
 // @description  Ищет по выделенному тексту: информацию об игре в Steam, русификаторы на ZOG и цены в магазинах
 // @author       0wn3df1x
 // @license      MIT
@@ -55,6 +55,7 @@
 // @connect      rushbe.ru
 // @connect      igm.gg
 // @connect      sous-buy.ru
+// @connect      sous-buy.shop
 // @connect      storage.yandexcloud.net
 // @connect      graph.digiseller.ru
 // @connect      steamcdn-a.akamaihd.net
@@ -6138,8 +6139,8 @@
             { // --- Модуль Sous-Buy ---
                 id: 'sousbuy',
                 name: 'Sous-Buy',
-                baseUrl: 'https://sous-buy.ru',
-                searchUrlTemplate: 'https://sous-buy.ru/catalog?GameSearch[game]={query}&GameSearch[instock]=1&GameSearch[key]=1&GameSearch[platform]=1',
+                baseUrl: 'https://sous-buy.shop',
+                searchUrlTemplate: 'https://sous-buy.shop/catalog?GameSearch[game]={query}&GameSearch[instock]=1&GameSearch[key]=1&GameSearch[platform]=1',
                 isEnabled: true,
                 fetch: async function(query) {
                     const searchUrl = this.searchUrlTemplate.replace('{query}', encodeURIComponent(query));
